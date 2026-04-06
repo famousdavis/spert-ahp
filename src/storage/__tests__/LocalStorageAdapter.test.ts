@@ -9,7 +9,7 @@ import {
 } from '../../core/models/AHPModel';
 
 describe('LocalStorageAdapter', () => {
-  let adapter;
+  let adapter: LocalStorageAdapter;
 
   beforeEach(() => {
     localStorage.clear();
