@@ -7,5 +7,13 @@ CLAUDE.md
 
 # Architecture/design docs (not source code)
 AHP_Doc*
+AHP\ Doc*
 *.docx
 *.zip
+
+# TypeScript build output (tsc -b artifacts)
+tsconfig.tsbuildinfo
+src/**/*.js
+src/**/*.js.map
+vite.config.js
+vite.config.js.map
