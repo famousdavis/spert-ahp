@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+*.local
+.claude/
+
+# Architecture/design docs (not source code)
+AHP_Doc*
+*.docx
+*.zip
