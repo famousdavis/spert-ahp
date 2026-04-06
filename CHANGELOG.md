@@ -1,6 +1,6 @@
 # SPERT® AHP — Changelog
 
-## v0.1.0 (March 19, 2026)
+## v0.1.0 (April 5, 2026)
 
 ### Features
 - AHP decision-making framework with pairwise comparisons
