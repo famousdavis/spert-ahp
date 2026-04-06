@@ -1,14 +1,18 @@
-export default function AppFooter() {
+interface AppFooterProps {
+  onNavigate?: (page: string) => void;
+}
+
+export default function AppFooter({ onNavigate }: AppFooterProps) {
   return (
     <footer className="border-t-2 border-gray-100 dark:border-gray-700 pb-6 pt-8 text-center text-sm text-gray-500 dark:text-gray-400">
       <div>
         &copy; {new Date().getFullYear()} William W. Davis, MSPM, PMP |{" "}
-        <a
-          href="/CHANGELOG.md"
+        <button
+          onClick={() => onNavigate?.('Changelog')}
           className="text-blue-600 hover:text-blue-700"
         >
           Version 0.1.0
-        </a>
+        </button>
         {" "}| Licensed under GNU GPL v3
       </div>
       <div className="mt-1">

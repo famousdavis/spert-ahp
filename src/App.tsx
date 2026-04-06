@@ -70,7 +70,7 @@ export default function App() {
         </div>
       </main>
 
-      <AppFooter />
+      <AppFooter onNavigate={(p) => setActivePage(p as Page)} />
     </div>
   );
 }

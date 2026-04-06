@@ -39,11 +39,21 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: 'UX',
         items: [
           'Tab-based navigation (Setup / Compare / Results / Settings)',
-          'Drag-and-drop reordering for criteria and alternatives',
-          'Dual-color comparison sliders (blue for left, amber for right)',
-          'Context-aware slider labels ("more important" for criteria, "more preferred" for alternatives)',
+          'Drag-and-drop reordering for criteria and alternatives (@dnd-kit)',
+          'Dual-color comparison sliders — blue fills toward left item, amber fills toward right item, with smooth animated transitions',
+          'Context-aware slider labels ("more important" for criteria, "more preferred w.r.t. [criterion]" for alternatives)',
           'Disagreement threshold configuration (strict/standard/exploratory presets)',
-          'About page with AHP methodology explanation',
+          'Dark mode with three-state toggle (light/dark/system) — persisted in localStorage',
+          'About page with AHP methodology, data security, licensing, and warranty sections',
+          'Changelog page with categorized version history',
+        ],
+      },
+      {
+        title: 'Legal',
+        items: [
+          'GNU GPL v3.0 license with attribution preservation terms (Section 7(b))',
+          'Terms of Service and Privacy Policy (linked to spertsuite.com)',
+          'SPERT\u00AE Suite branding in footer',
         ],
       },
       {
@@ -54,6 +64,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           'TypeScript strict mode with noUncheckedIndexedAccess',
           'Tailwind CSS v4 with @tailwindcss/vite plugin',
           'Vite 6, React 18, Vitest test framework',
+          'Deployed on Vercel',
         ],
       },
     ],

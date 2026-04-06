@@ -12,6 +12,6 @@ describe('E2E: component smoke tests (JSX)', () => {
     expect(hrefs).toContain('https://spertsuite.com/TOS.pdf');
     expect(hrefs).toContain('https://spertsuite.com/PRIVACY.pdf');
     expect(hrefs).toContain('https://github.com/famousdavis/spert-ahp/blob/main/LICENSE');
-    expect(hrefs).toHaveLength(5);
+    expect(hrefs).toHaveLength(4);
   });
 });
