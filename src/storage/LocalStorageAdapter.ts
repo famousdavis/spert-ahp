@@ -284,10 +284,6 @@ export class LocalStorageAdapter implements StorageAdapter {
     return () => {};
   }
 
-  subscribeResponses(_modelId: string, _callback: (data: unknown) => void): () => void {
-    return () => {};
-  }
-
   // ─── Internal helpers ──────────────────────────────────────────
 
   private _hasAnyResponses(modelId: string): boolean {

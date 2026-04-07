@@ -263,9 +263,10 @@ export interface StorageAdapter {
   getComparisons(modelId: string, userId: string, layer: string): Promise<ComparisonMap>;
   saveSynthesis(modelId: string, synthesisId: string, docs: Partial<SynthesisBundle>): Promise<void>;
   getSynthesis(modelId: string, synthesisId: string): Promise<SynthesisBundle | null>;
-  // Subscription methods stay sync-returning — they return the unsubscribe function
+  // Subscription method stays sync-returning — returns the unsubscribe function.
+  // Responses are delivered via the same model subscription (they're embedded in
+  // the monolithic document), so subscribeResponses was removed in Phase 7.
   subscribeModel(modelId: string, callback: (data: unknown) => void): () => void;
-  subscribeResponses(modelId: string, callback: (data: unknown) => void): () => void;
 }
 
 // ─── useAHP State ────────────────────────────────────────────

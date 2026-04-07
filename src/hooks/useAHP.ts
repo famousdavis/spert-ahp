@@ -1,4 +1,4 @@
-import { useReducer, useCallback } from 'react';
+import { useReducer, useCallback, useEffect } from 'react';
 import { useStorage } from '../contexts/StorageContext';
 import {
   createModelDoc,
@@ -18,6 +18,7 @@ import type {
   UseAHPReturn,
   ModelDoc,
   StructureDoc,
+  CollaboratorDoc,
   ComparisonMap,
   ResponseDoc,
   ConsistencyResult,
@@ -383,6 +384,68 @@ export function useAHP(userId: string): UseAHPReturn {
     if (!state.modelId) return;
     await storage.deleteModel(state.modelId);
     dispatch({ type: 'RESET' });
+  }, [state.modelId, storage]);
+
+  // Real-time subscription. In local mode this is a no-op. In cloud mode the
+  // FirestoreAdapter delivers the monolithic document whenever any field
+  // changes (with echo prevention for our own writes). We decode the doc and
+  // dispatch the relevant state updates.
+  useEffect(() => {
+    if (!state.modelId) return;
+    const unsub = storage.subscribeModel(state.modelId, (raw) => {
+      if (!raw || typeof raw !== 'object') return;
+      const d = raw as Record<string, unknown>;
+
+      // Meta
+      const meta: ModelDoc = {
+        title: d['title'] as string,
+        goal: d['goal'] as string,
+        createdBy: d['createdBy'] as string,
+        createdAt: d['createdAt'] as number,
+        status: d['status'] as ModelDoc['status'],
+        completionTier: d['completionTier'] as ModelDoc['completionTier'],
+        synthesisStatus: d['synthesisStatus'] as ModelDoc['synthesisStatus'],
+        disagreementConfig: d['disagreementConfig'] as ModelDoc['disagreementConfig'],
+        publishedSynthesisId: (d['publishedSynthesisId'] as string | null) ?? null,
+        _originRef: d['_originRef'] as string,
+        _changeLog: (d['_changeLog'] as ModelDoc['_changeLog']) ?? [],
+      };
+      const structure: StructureDoc = {
+        criteria: (d['criteria'] as StructureDoc['criteria']) ?? [],
+        alternatives: (d['alternatives'] as StructureDoc['alternatives']) ?? [],
+        structureVersion: (d['structureVersion'] as number) ?? 0,
+      };
+      dispatch({
+        type: 'SET_MODEL',
+        payload: { modelId: state.modelId!, meta, structure },
+      });
+
+      // Collaborators
+      const collabs = (d['collaborators'] as CollaboratorDoc[]) ?? [];
+      dispatch({ type: 'SET_COLLABORATORS', payload: collabs });
+
+      // Responses — dispatch one per user
+      const responses = (d['responses'] as Record<string, ResponseDoc>) ?? {};
+      for (const [uid, response] of Object.entries(responses)) {
+        dispatch({ type: 'SET_RESPONSE', payload: { userId: uid, response } });
+      }
+
+      // Synthesis
+      const synthesis = d['synthesis'] as
+        | { synthesisId: string; summary: SynthesisBundle['summary']; individual: SynthesisBundle['individual']; diagnostics: SynthesisBundle['diagnostics'] }
+        | null;
+      if (synthesis && synthesis.synthesisId === meta.publishedSynthesisId) {
+        dispatch({
+          type: 'SET_SYNTHESIS',
+          payload: {
+            summary: synthesis.summary,
+            individual: synthesis.individual,
+            diagnostics: synthesis.diagnostics,
+          },
+        });
+      }
+    });
+    return unsub;
   }, [state.modelId, storage]);
 
   return {

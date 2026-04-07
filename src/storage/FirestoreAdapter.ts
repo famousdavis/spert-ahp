@@ -433,12 +433,6 @@ export class FirestoreAdapter implements StorageAdapter {
       callback(snap.data());
     });
   }
-
-  subscribeResponses(modelId: string, callback: (data: unknown) => void): () => void {
-    // Responses are embedded in the model doc, so this delegates to subscribeModel.
-    // Kept for interface compatibility; will be removed in Phase 7.
-    return this.subscribeModel(modelId, callback);
-  }
 }
 
 // Suppress unused import

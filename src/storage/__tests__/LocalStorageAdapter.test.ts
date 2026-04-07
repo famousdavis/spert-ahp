@@ -197,11 +197,6 @@ describe('LocalStorageAdapter', () => {
       unsub(); // should not throw
     });
 
-    it('subscribeResponses returns no-op unsubscribe', () => {
-      const unsub = adapter.subscribeResponses('m1', () => {});
-      expect(typeof unsub).toBe('function');
-      unsub();
-    });
   });
 
   // ─── Schema version ────────────────────────────────────────
