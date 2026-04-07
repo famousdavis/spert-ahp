@@ -1,4 +1,5 @@
 import { CURRENT_SCHEMA_VERSION, ERROR_CODES } from '../core/models/constants';
+import { getOrCreateWorkspaceId } from '../hooks/useSession';
 import type {
   StorageAdapter,
   ModelDoc,
@@ -94,6 +95,10 @@ export class LocalStorageAdapter implements StorageAdapter {
   async getModel(modelId: string): Promise<{ meta: ModelDoc; structure: StructureDoc } | null> {
     const meta = getJSON<ModelDoc>(key('models', modelId, 'meta'));
     if (!meta) return null;
+    // Backwards compat: fill in fingerprinting fields on read for pre-v0.2.0 models.
+    // Read-only fill — do not write back (keeps reads idempotent).
+    if (!meta._originRef) meta._originRef = getOrCreateWorkspaceId();
+    if (!meta._changeLog) meta._changeLog = [];
     const structure = getJSON<StructureDoc>(key('models', modelId, 'structure'))!;
     return { meta, structure };
   }

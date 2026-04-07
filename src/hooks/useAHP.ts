@@ -1,5 +1,5 @@
 import { useReducer, useCallback } from 'react';
-import { LocalStorageAdapter } from '../storage/LocalStorageAdapter';
+import { useStorage } from '../contexts/StorageContext';
 import {
   createModelDoc,
   createStructureDoc,
@@ -26,8 +26,6 @@ import type {
   PairCoverageDiagnostic,
   SynthesisBundle,
 } from '../types/ahp';
-
-const storage = new LocalStorageAdapter();
 
 const initialState: AHPState = {
   modelId: null,
@@ -78,6 +76,7 @@ function reducer(state: AHPState, action: AHPAction): AHPState {
 }
 
 export function useAHP(userId: string): UseAHPReturn {
+  const { adapter: storage } = useStorage();
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const createModel = useCallback(async (title: string, goal: string): Promise<string> => {
@@ -104,7 +103,7 @@ export function useAHP(userId: string): UseAHPReturn {
     });
 
     return modelId;
-  }, [userId]);
+  }, [userId, storage]);
 
   const loadModel = useCallback(async (modelId: string): Promise<void> => {
     const data = await storage.getModel(modelId);
@@ -137,13 +136,13 @@ export function useAHP(userId: string): UseAHPReturn {
         dispatch({ type: 'SET_SYNTHESIS', payload: syn });
       }
     }
-  }, []);
+  }, [storage]);
 
   const updateModel = useCallback(async (partialMeta: Partial<ModelDoc>): Promise<void> => {
     if (!state.modelId) return;
     await storage.updateModel(state.modelId, partialMeta);
     dispatch({ type: 'UPDATE_MODEL', payload: partialMeta });
-  }, [state.modelId]);
+  }, [state.modelId, storage]);
 
   const updateStructure = useCallback(async (newStructure: StructureDoc): Promise<void> => {
     if (!state.modelId) return;
@@ -154,7 +153,7 @@ export function useAHP(userId: string): UseAHPReturn {
       await storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
       dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'out_of_date' } });
     }
-  }, [state.modelId, state.model?.synthesisStatus]);
+  }, [state.modelId, state.model?.synthesisStatus, storage]);
 
   const saveComparisons = useCallback(async (layer: string, comparisons: ComparisonMap): Promise<void> => {
     if (!state.modelId) return;
@@ -186,7 +185,7 @@ export function useAHP(userId: string): UseAHPReturn {
       await storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
       dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'out_of_date' } });
     }
-  }, [state.modelId, userId, state.responses, state.model?.synthesisStatus]);
+  }, [state.modelId, userId, state.responses, state.model?.synthesisStatus, storage]);
 
   const runSynthesis = useCallback(async () => {
     if (!state.modelId || !state.structure || !state.model) return;
@@ -374,7 +373,7 @@ export function useAHP(userId: string): UseAHPReturn {
       dispatch({ type: 'SET_ERROR', payload: (err as Error).message });
       dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'out_of_date' } });
     }
-  }, [state.modelId, state.structure, state.model, userId]);
+  }, [state.modelId, state.structure, state.model, userId, storage]);
 
   const closeModel = useCallback(() => {
     dispatch({ type: 'RESET' });
@@ -384,7 +383,7 @@ export function useAHP(userId: string): UseAHPReturn {
     if (!state.modelId) return;
     await storage.deleteModel(state.modelId);
     dispatch({ type: 'RESET' });
-  }, [state.modelId]);
+  }, [state.modelId, storage]);
 
   return {
     ...state,

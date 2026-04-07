@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAHP } from '../useAHP';
+import { TestProviders } from '../../__tests__/test-utils';
 
 describe('useAHP', () => {
   beforeEach(() => {
@@ -8,7 +9,7 @@ describe('useAHP', () => {
   });
 
   it('creates a model with correct defaults', async () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
     await act(async () => {
       await result.current.createModel('Test Decision', 'Find the best option');
@@ -27,7 +28,7 @@ describe('useAHP', () => {
   });
 
   it('updates structure', async () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
     await act(async () => {
       await result.current.createModel('Test', 'Goal');
@@ -54,7 +55,7 @@ describe('useAHP', () => {
   });
 
   it('saves and retrieves comparisons', async () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
     await act(async () => {
       await result.current.createModel('Test', 'Goal');
@@ -74,7 +75,7 @@ describe('useAHP', () => {
   });
 
   it('loads a previously created model', async () => {
-    const { result: r1 } = renderHook(() => useAHP('test-user'));
+    const { result: r1 } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
     let modelId: string | undefined;
 
     await act(async () => {
@@ -82,7 +83,7 @@ describe('useAHP', () => {
     });
 
     // New hook instance loading existing model
-    const { result: r2 } = renderHook(() => useAHP('test-user'));
+    const { result: r2 } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
     await act(async () => {
       await r2.current.loadModel(modelId!);
@@ -93,7 +94,7 @@ describe('useAHP', () => {
   });
 
   it('deletes a model', async () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
     await act(async () => {
       await result.current.createModel('To Delete', 'Goal');
@@ -108,7 +109,7 @@ describe('useAHP', () => {
   });
 
   it('marks synthesis out_of_date when comparisons change after current', async () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
     await act(async () => {
       await result.current.createModel('Test', 'Goal');

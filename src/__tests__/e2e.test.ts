@@ -8,6 +8,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useAHP } from '../hooks/useAHP';
 import { useMatrix } from '../hooks/useMatrix';
 import { useDisagreementLevelGuard } from '../hooks/useDisagreementLevelGuard';
+import { TestProviders } from './test-utils';
 
 const USER_ID = 'e2e-test-user';
 
@@ -17,7 +18,7 @@ describe('E2E: full AHP workflow', () => {
   });
 
   it('create model → set structure → enter comparisons → verify state', async () => {
-    const { result } = renderHook(() => useAHP(USER_ID));
+    const { result } = renderHook(() => useAHP(USER_ID), { wrapper: TestProviders });
 
     // 1. Create model
     let modelId: string | undefined;
@@ -70,7 +71,7 @@ describe('E2E: full AHP workflow', () => {
 
   it('state restoration after simulated reload', async () => {
     // Create and populate
-    const { result: r1 } = renderHook(() => useAHP(USER_ID));
+    const { result: r1 } = renderHook(() => useAHP(USER_ID), { wrapper: TestProviders });
     let modelId: string | undefined;
 
     await act(async () => {
@@ -96,7 +97,7 @@ describe('E2E: full AHP workflow', () => {
     });
 
     // "Reload" — new hook instance, load model
-    const { result: r2 } = renderHook(() => useAHP(USER_ID));
+    const { result: r2 } = renderHook(() => useAHP(USER_ID), { wrapper: TestProviders });
 
     await act(async () => {
       await r2.current.loadModel(modelId!);
@@ -130,7 +131,7 @@ describe('E2E: full AHP workflow', () => {
   });
 
   it('useDisagreementLevelGuard returns false for single user', async () => {
-    const { result } = renderHook(() => useAHP(USER_ID));
+    const { result } = renderHook(() => useAHP(USER_ID), { wrapper: TestProviders });
 
     await act(async () => {
       await result.current.createModel('Guard Test', 'Goal');
@@ -145,13 +146,13 @@ describe('E2E: full AHP workflow', () => {
   });
 
   it('model list persists across instances', async () => {
-    const { result: r1 } = renderHook(() => useAHP(USER_ID));
+    const { result: r1 } = renderHook(() => useAHP(USER_ID), { wrapper: TestProviders });
 
     await act(async () => {
       await r1.current.createModel('Model A', 'Goal A');
     });
 
-    const { result: r2 } = renderHook(() => useAHP(USER_ID));
+    const { result: r2 } = renderHook(() => useAHP(USER_ID), { wrapper: TestProviders });
 
     await act(async () => {
       await r2.current.createModel('Model B', 'Goal B');

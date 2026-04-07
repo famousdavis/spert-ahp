@@ -42,6 +42,12 @@ export interface DisagreementConfig {
 
 // ─── Document Types (storage layer) ──────────────────────────
 
+export interface ChangeLogEntry {
+  action: 'created' | 'uploaded' | string;
+  timestamp: number;
+  actor?: string;
+}
+
 export interface ModelDoc {
   title: string;
   goal: string;
@@ -52,6 +58,10 @@ export interface ModelDoc {
   synthesisStatus: SynthesisStatus | null;
   disagreementConfig: DisagreementConfig;
   publishedSynthesisId: string | null;
+  /** Workspace UUID that first created the model (fingerprinting). */
+  _originRef: string;
+  /** Append-only provenance log. */
+  _changeLog: ChangeLogEntry[];
 }
 
 export interface StructureDoc {

@@ -1,4 +1,5 @@
 import { DISAGREEMENT_PRESETS } from './constants';
+import { getOrCreateWorkspaceId } from '../../hooks/useSession';
 import type {
   ModelDoc,
   StructureDoc,
@@ -10,11 +11,12 @@ import type {
 } from '../../types/ahp';
 
 export function createModelDoc(title: string, goal: string, userId: string): ModelDoc {
+  const now = Date.now();
   return {
     title,
     goal,
     createdBy: userId,
-    createdAt: Date.now(),
+    createdAt: now,
     status: 'setup',
     completionTier: 4,
     synthesisStatus: null,
@@ -22,9 +24,11 @@ export function createModelDoc(title: string, goal: string, userId: string): Mod
       preset: 'standard',
       thresholds: { ...DISAGREEMENT_PRESETS['standard']! },
       configuredBy: userId,
-      configuredAt: Date.now(),
+      configuredAt: now,
     },
     publishedSynthesisId: null,
+    _originRef: getOrCreateWorkspaceId(),
+    _changeLog: [{ action: 'created', timestamp: now, actor: userId }],
   };
 }
 
