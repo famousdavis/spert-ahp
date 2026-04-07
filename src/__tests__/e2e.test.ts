@@ -16,21 +16,21 @@ describe('E2E: full AHP workflow', () => {
     localStorage.clear();
   });
 
-  it('create model → set structure → enter comparisons → verify state', () => {
+  it('create model → set structure → enter comparisons → verify state', async () => {
     const { result } = renderHook(() => useAHP(USER_ID));
 
     // 1. Create model
     let modelId: string | undefined;
-    act(() => {
-      modelId = result.current.createModel('Best Laptop', 'Choose the best laptop for work');
+    await act(async () => {
+      modelId = await result.current.createModel('Best Laptop', 'Choose the best laptop for work');
     });
     expect(modelId).toBeTruthy();
     expect(result.current.model!.title).toBe('Best Laptop');
     expect(result.current.model!.status).toBe('setup');
 
     // 2. Set structure
-    act(() => {
-      result.current.updateStructure({
+    await act(async () => {
+      await result.current.updateStructure({
         criteria: [
           { id: 'price', label: 'Price', description: '' },
           { id: 'performance', label: 'Performance', description: '' },
@@ -47,38 +47,38 @@ describe('E2E: full AHP workflow', () => {
     expect(result.current.structure!.alternatives.length).toBe(2);
 
     // 3. Enter criteria comparisons
-    act(() => {
-      result.current.saveComparisons('criteria', { '0,1': 3, '0,2': 5, '1,2': 2 });
+    await act(async () => {
+      await result.current.saveComparisons('criteria', { '0,1': 3, '0,2': 5, '1,2': 2 });
     });
 
     // Verify comparisons stored
-    const storedComp = result.current.storage.getComparisons(modelId!, USER_ID, 'criteria');
+    const storedComp = await result.current.storage.getComparisons(modelId!, USER_ID, 'criteria');
     expect(storedComp['0,1']).toBe(3);
     expect(storedComp['0,2']).toBe(5);
     expect(storedComp['1,2']).toBe(2);
 
     // 4. Enter alternative comparisons per criterion
-    act(() => {
-      result.current.saveComparisons('price', { '0,1': 1 / 3 });
-      result.current.saveComparisons('performance', { '0,1': 5 });
-      result.current.saveComparisons('battery', { '0,1': 3 });
+    await act(async () => {
+      await result.current.saveComparisons('price', { '0,1': 1 / 3 });
+      await result.current.saveComparisons('performance', { '0,1': 5 });
+      await result.current.saveComparisons('battery', { '0,1': 3 });
     });
 
-    const priceComp = result.current.storage.getComparisons(modelId!, USER_ID, 'price');
+    const priceComp = await result.current.storage.getComparisons(modelId!, USER_ID, 'price');
     expect(priceComp['0,1']).toBeCloseTo(1 / 3, 10);
   });
 
-  it('state restoration after simulated reload', () => {
+  it('state restoration after simulated reload', async () => {
     // Create and populate
     const { result: r1 } = renderHook(() => useAHP(USER_ID));
     let modelId: string | undefined;
 
-    act(() => {
-      modelId = r1.current.createModel('Restore Test', 'Goal');
+    await act(async () => {
+      modelId = await r1.current.createModel('Restore Test', 'Goal');
     });
 
-    act(() => {
-      r1.current.updateStructure({
+    await act(async () => {
+      await r1.current.updateStructure({
         criteria: [
           { id: 'c1', label: 'Crit1', description: '' },
           { id: 'c2', label: 'Crit2', description: '' },
@@ -91,15 +91,15 @@ describe('E2E: full AHP workflow', () => {
       });
     });
 
-    act(() => {
-      r1.current.saveComparisons('criteria', { '0,1': 7 });
+    await act(async () => {
+      await r1.current.saveComparisons('criteria', { '0,1': 7 });
     });
 
     // "Reload" — new hook instance, load model
     const { result: r2 } = renderHook(() => useAHP(USER_ID));
 
-    act(() => {
-      r2.current.loadModel(modelId!);
+    await act(async () => {
+      await r2.current.loadModel(modelId!);
     });
 
     expect(r2.current.model!.title).toBe('Restore Test');
@@ -107,7 +107,7 @@ describe('E2E: full AHP workflow', () => {
     expect(r2.current.collaborators.length).toBe(1);
 
     // Verify comparisons persist
-    const comp = r2.current.storage.getComparisons(modelId!, USER_ID, 'criteria');
+    const comp = await r2.current.storage.getComparisons(modelId!, USER_ID, 'criteria');
     expect(comp['0,1']).toBe(7);
   });
 
@@ -129,11 +129,11 @@ describe('E2E: full AHP workflow', () => {
     expect(result.current.connectivity.connected).toBe(true);
   });
 
-  it('useDisagreementLevelGuard returns false for single user', () => {
+  it('useDisagreementLevelGuard returns false for single user', async () => {
     const { result } = renderHook(() => useAHP(USER_ID));
 
-    act(() => {
-      result.current.createModel('Guard Test', 'Goal');
+    await act(async () => {
+      await result.current.createModel('Guard Test', 'Goal');
     });
 
     const { result: guardResult } = renderHook(() =>
@@ -144,20 +144,20 @@ describe('E2E: full AHP workflow', () => {
     expect(guardResult.current.voterCount).toBe(0);
   });
 
-  it('model list persists across instances', () => {
+  it('model list persists across instances', async () => {
     const { result: r1 } = renderHook(() => useAHP(USER_ID));
 
-    act(() => {
-      r1.current.createModel('Model A', 'Goal A');
+    await act(async () => {
+      await r1.current.createModel('Model A', 'Goal A');
     });
 
     const { result: r2 } = renderHook(() => useAHP(USER_ID));
 
-    act(() => {
-      r2.current.createModel('Model B', 'Goal B');
+    await act(async () => {
+      await r2.current.createModel('Model B', 'Goal B');
     });
 
-    const list = r2.current.storage.listModels();
+    const list = await r2.current.storage.listModels();
     expect(list.length).toBe(2);
     expect(list.map((m: { title: string }) => m.title)).toContain('Model A');
     expect(list.map((m: { title: string }) => m.title)).toContain('Model B');

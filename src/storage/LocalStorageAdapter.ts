@@ -77,7 +77,7 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   // ─── Model CRUD ──────────────────────────────────────────────────
 
-  createModel(modelId: string, metaDoc: ModelDoc, structureDoc: StructureDoc): void {
+  async createModel(modelId: string, metaDoc: ModelDoc, structureDoc: StructureDoc): Promise<void> {
     setJSON(key('models', modelId, 'meta'), metaDoc);
     setJSON(key('models', modelId, 'structure'), structureDoc);
 
@@ -91,14 +91,14 @@ export class LocalStorageAdapter implements StorageAdapter {
     setJSON(key('modelIndex'), index);
   }
 
-  getModel(modelId: string): { meta: ModelDoc; structure: StructureDoc } | null {
+  async getModel(modelId: string): Promise<{ meta: ModelDoc; structure: StructureDoc } | null> {
     const meta = getJSON<ModelDoc>(key('models', modelId, 'meta'));
     if (!meta) return null;
     const structure = getJSON<StructureDoc>(key('models', modelId, 'structure'))!;
     return { meta, structure };
   }
 
-  updateModel(modelId: string, partialMeta: Partial<ModelDoc>): void {
+  async updateModel(modelId: string, partialMeta: Partial<ModelDoc>): Promise<void> {
     const meta = getJSON<ModelDoc>(key('models', modelId, 'meta'));
     if (!meta) throw new Error(`Model ${modelId} not found`);
 
@@ -126,7 +126,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
   }
 
-  deleteModel(modelId: string): void {
+  async deleteModel(modelId: string): Promise<void> {
     const prefix = key('models', modelId);
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -142,23 +142,23 @@ export class LocalStorageAdapter implements StorageAdapter {
     setJSON(key('modelIndex'), filtered);
   }
 
-  listModels(): ModelIndexEntry[] {
+  async listModels(): Promise<ModelIndexEntry[]> {
     return getJSON<ModelIndexEntry[]>(key('modelIndex')) ?? [];
   }
 
   // ─── Structure ───────────────────────────────────────────────────
 
-  getStructure(modelId: string): StructureDoc | null {
+  async getStructure(modelId: string): Promise<StructureDoc | null> {
     return getJSON<StructureDoc>(key('models', modelId, 'structure'));
   }
 
-  updateStructure(modelId: string, structureDoc: StructureDoc): void {
+  async updateStructure(modelId: string, structureDoc: StructureDoc): Promise<void> {
     setJSON(key('models', modelId, 'structure'), structureDoc);
   }
 
   // ─── Collaborators ──────────────────────────────────────────────
 
-  addCollaborator(modelId: string, collaboratorDoc: CollaboratorDoc): void {
+  async addCollaborator(modelId: string, collaboratorDoc: CollaboratorDoc): Promise<void> {
     const k = key('models', modelId, 'collaborators', collaboratorDoc.userId);
     setJSON(k, collaboratorDoc);
 
@@ -170,7 +170,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
   }
 
-  getCollaborators(modelId: string): CollaboratorDoc[] {
+  async getCollaborators(modelId: string): Promise<CollaboratorDoc[]> {
     const listKey = key('models', modelId, 'collaboratorList');
     const list = getJSON<string[]>(listKey) ?? [];
     return list
@@ -178,7 +178,7 @@ export class LocalStorageAdapter implements StorageAdapter {
       .filter((c): c is CollaboratorDoc => c !== null);
   }
 
-  updateCollaborator(modelId: string, userId: string, partial: Partial<CollaboratorDoc>): void {
+  async updateCollaborator(modelId: string, userId: string, partial: Partial<CollaboratorDoc>): Promise<void> {
     const k = key('models', modelId, 'collaborators', userId);
     const current = getJSON<CollaboratorDoc>(k);
     if (!current) throw new Error(`Collaborator ${userId} not found`);
@@ -187,11 +187,11 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   // ─── Responses ──────────────────────────────────────────────────
 
-  getResponse(modelId: string, userId: string): ResponseDoc | null {
+  async getResponse(modelId: string, userId: string): Promise<ResponseDoc | null> {
     return getJSON<ResponseDoc>(key('models', modelId, 'responses', userId));
   }
 
-  createResponse(modelId: string, responseDoc: ResponseDoc): void {
+  async createResponse(modelId: string, responseDoc: ResponseDoc): Promise<void> {
     const k = key('models', modelId, 'responses', responseDoc.userId);
     setJSON(k, responseDoc);
 
@@ -203,7 +203,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
   }
 
-  updateResponse(modelId: string, userId: string, partial: Partial<ResponseDoc>): void {
+  async updateResponse(modelId: string, userId: string, partial: Partial<ResponseDoc>): Promise<void> {
     const k = key('models', modelId, 'responses', userId);
     const current = getJSON<ResponseDoc>(k);
     if (!current) throw new Error(`Response for ${userId} not found`);
@@ -212,10 +212,10 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   // ─── Comparisons ───────────────────────────────────────────────
 
-  saveComparisons(modelId: string, userId: string, layer: string, comparisons: ComparisonMap): void {
+  async saveComparisons(modelId: string, userId: string, layer: string, comparisons: ComparisonMap): Promise<void> {
     validateUpperTriangle(comparisons);
 
-    const response = this.getResponse(modelId, userId);
+    const response = getJSON<ResponseDoc>(key('models', modelId, 'responses', userId));
     if (!response) throw new Error(`Response for ${userId} not found`);
 
     if (layer === 'criteria') {
@@ -232,8 +232,8 @@ export class LocalStorageAdapter implements StorageAdapter {
     setJSON(key('models', modelId, 'responses', userId), response);
   }
 
-  getComparisons(modelId: string, userId: string, layer: string): ComparisonMap {
-    const response = this.getResponse(modelId, userId);
+  async getComparisons(modelId: string, userId: string, layer: string): Promise<ComparisonMap> {
+    const response = getJSON<ResponseDoc>(key('models', modelId, 'responses', userId));
     if (!response) return {};
 
     let comparisons: ComparisonMap;
@@ -255,14 +255,14 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   // ─── Synthesis ──────────────────────────────────────────────────
 
-  saveSynthesis(modelId: string, synthesisId: string, docs: Partial<SynthesisBundle>): void {
+  async saveSynthesis(modelId: string, synthesisId: string, docs: Partial<SynthesisBundle>): Promise<void> {
     const base = key('models', modelId, 'syntheses', synthesisId);
     if (docs.summary) setJSON(`${base}/summary`, docs.summary);
     if (docs.individual) setJSON(`${base}/individual`, docs.individual);
     if (docs.diagnostics) setJSON(`${base}/diagnostics`, docs.diagnostics);
   }
 
-  getSynthesis(modelId: string, synthesisId: string): SynthesisBundle | null {
+  async getSynthesis(modelId: string, synthesisId: string): Promise<SynthesisBundle | null> {
     const base = key('models', modelId, 'syntheses', synthesisId);
     const summary = getJSON<SynthesisBundle['summary']>(`${base}/summary`);
     if (!summary) return null;
@@ -289,7 +289,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     const listKey = key('models', modelId, 'responseList');
     const list = getJSON<string[]>(listKey) ?? [];
     for (const userId of list) {
-      const response = this.getResponse(modelId, userId);
+      const response = getJSON<ResponseDoc>(key('models', modelId, 'responses', userId));
       if (response && Object.keys(response.criteriaMatrix ?? {}).length > 0) {
         return true;
       }

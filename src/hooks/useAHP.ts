@@ -19,6 +19,7 @@ import type {
   ModelDoc,
   StructureDoc,
   ComparisonMap,
+  ResponseDoc,
   ConsistencyResult,
   VotingMember,
   ConcordanceInterpretation,
@@ -79,18 +80,18 @@ function reducer(state: AHPState, action: AHPAction): AHPState {
 export function useAHP(userId: string): UseAHPReturn {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const createModel = useCallback((title: string, goal: string): string => {
+  const createModel = useCallback(async (title: string, goal: string): Promise<string> => {
     const modelId = `model-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const meta = createModelDoc(title, goal, userId);
     const structure = createStructureDoc();
 
-    storage.createModel(modelId, meta, structure);
+    await storage.createModel(modelId, meta, structure);
 
     const collab = createCollaboratorDoc(userId, 'owner', true);
-    storage.addCollaborator(modelId, collab);
+    await storage.addCollaborator(modelId, collab);
 
     const response = createResponseDoc(userId);
-    storage.createResponse(modelId, response);
+    await storage.createResponse(modelId, response);
 
     dispatch({
       type: 'SET_MODEL',
@@ -105,8 +106,8 @@ export function useAHP(userId: string): UseAHPReturn {
     return modelId;
   }, [userId]);
 
-  const loadModel = useCallback((modelId: string) => {
-    const data = storage.getModel(modelId);
+  const loadModel = useCallback(async (modelId: string): Promise<void> => {
+    const data = await storage.getModel(modelId);
     if (!data) {
       dispatch({ type: 'SET_ERROR', payload: `Model ${modelId} not found` });
       return;
@@ -117,11 +118,11 @@ export function useAHP(userId: string): UseAHPReturn {
       payload: { modelId, meta: data.meta, structure: data.structure },
     });
 
-    const collabs = storage.getCollaborators(modelId);
+    const collabs = await storage.getCollaborators(modelId);
     dispatch({ type: 'SET_COLLABORATORS', payload: collabs });
 
     for (const collab of collabs) {
-      const response = storage.getResponse(modelId, collab.userId);
+      const response = await storage.getResponse(modelId, collab.userId);
       if (response) {
         dispatch({
           type: 'SET_RESPONSE',
@@ -131,56 +132,73 @@ export function useAHP(userId: string): UseAHPReturn {
     }
 
     if (data.meta.publishedSynthesisId) {
-      const syn = storage.getSynthesis(modelId, data.meta.publishedSynthesisId);
+      const syn = await storage.getSynthesis(modelId, data.meta.publishedSynthesisId);
       if (syn) {
         dispatch({ type: 'SET_SYNTHESIS', payload: syn });
       }
     }
   }, []);
 
-  const updateModel = useCallback((partialMeta: Partial<ModelDoc>) => {
+  const updateModel = useCallback(async (partialMeta: Partial<ModelDoc>): Promise<void> => {
     if (!state.modelId) return;
-    storage.updateModel(state.modelId, partialMeta);
+    await storage.updateModel(state.modelId, partialMeta);
     dispatch({ type: 'UPDATE_MODEL', payload: partialMeta });
   }, [state.modelId]);
 
-  const updateStructure = useCallback((newStructure: StructureDoc) => {
+  const updateStructure = useCallback(async (newStructure: StructureDoc): Promise<void> => {
     if (!state.modelId) return;
-    storage.updateStructure(state.modelId, newStructure);
+    await storage.updateStructure(state.modelId, newStructure);
     dispatch({ type: 'SET_STRUCTURE', payload: newStructure });
 
     if (state.model?.synthesisStatus === 'current') {
-      storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
+      await storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
       dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'out_of_date' } });
     }
   }, [state.modelId, state.model?.synthesisStatus]);
 
-  const saveComparisons = useCallback((layer: string, comparisons: ComparisonMap) => {
+  const saveComparisons = useCallback(async (layer: string, comparisons: ComparisonMap): Promise<void> => {
     if (!state.modelId) return;
-    storage.saveComparisons(state.modelId, userId, layer, comparisons);
 
-    const response = storage.getResponse(state.modelId, userId);
-    if (response) {
-      dispatch({ type: 'SET_RESPONSE', payload: { userId, response } });
+    // Optimistic local update — compute the next ResponseDoc from current state.
+    // We don't read-after-write from storage because (a) in cloud mode that's a
+    // wasted Firestore read + race condition, (b) we know exactly what we just wrote.
+    // onSnapshot will reconcile any concurrent edits by other users in cloud mode.
+    const currentResponse = state.responses[userId];
+    if (currentResponse) {
+      const nextResponse: ResponseDoc = {
+        ...currentResponse,
+        ...(layer === 'criteria'
+          ? { criteriaMatrix: { ...currentResponse.criteriaMatrix, ...comparisons } }
+          : {
+              alternativeMatrices: {
+                ...currentResponse.alternativeMatrices,
+                [layer]: { ...(currentResponse.alternativeMatrices[layer] ?? {}), ...comparisons },
+              },
+            }),
+        lastModifiedAt: Date.now(),
+      };
+      dispatch({ type: 'SET_RESPONSE', payload: { userId, response: nextResponse } });
     }
+
+    await storage.saveComparisons(state.modelId, userId, layer, comparisons);
 
     if (state.model?.synthesisStatus === 'current') {
-      storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
+      await storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
       dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'out_of_date' } });
     }
-  }, [state.modelId, userId, state.model?.synthesisStatus]);
+  }, [state.modelId, userId, state.responses, state.model?.synthesisStatus]);
 
   const runSynthesis = useCallback(async () => {
     if (!state.modelId || !state.structure || !state.model) return;
 
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'computing' } });
-    storage.updateModel(state.modelId, { synthesisStatus: 'computing' });
+    await storage.updateModel(state.modelId, { synthesisStatus: 'computing' });
 
     try {
       const n = state.structure.criteria.length;
       const completionTier = state.model.completionTier;
-      const collabs = storage.getCollaborators(state.modelId);
+      const collabs = await storage.getCollaborators(state.modelId);
       const votingMembers: VotingMember[] = collabs.map((c) => ({ userId: c.userId, isVoting: c.isVoting }));
 
       const allCriteriaComparisons: Array<{ userId: string; comparisons: ComparisonMap }> = [];
@@ -190,13 +208,13 @@ export function useAHP(userId: string): UseAHPReturn {
       const isVotingSnapshot: Record<string, boolean> = {};
 
       for (const collab of collabs) {
-        const response = storage.getResponse(state.modelId, collab.userId);
+        const response = await storage.getResponse(state.modelId, collab.userId);
         if (!response) continue;
 
         voterTimestamps[collab.userId] = response.lastModifiedAt;
         isVotingSnapshot[collab.userId] = collab.isVoting;
 
-        const critComp = storage.getComparisons(state.modelId, collab.userId, 'criteria');
+        const critComp = await storage.getComparisons(state.modelId, collab.userId, 'criteria');
         allCriteriaComparisons.push({ userId: collab.userId, comparisons: critComp });
 
         const critCR = consistencyRatio(n, critComp, completionTier);
@@ -206,7 +224,7 @@ export function useAHP(userId: string): UseAHPReturn {
           if (!allAlternativeComparisons[criterion.id]) {
             allAlternativeComparisons[criterion.id] = [];
           }
-          const altComp = storage.getComparisons(state.modelId, collab.userId, criterion.id);
+          const altComp = await storage.getComparisons(state.modelId, collab.userId, criterion.id);
           allAlternativeComparisons[criterion.id]!.push({
             userId: collab.userId,
             comparisons: altComp,
@@ -338,8 +356,8 @@ export function useAHP(userId: string): UseAHPReturn {
         pairwiseAgreement,
       };
 
-      storage.saveSynthesis(state.modelId, synthesisId, { summary, individual, diagnostics });
-      storage.updateModel(state.modelId, {
+      await storage.saveSynthesis(state.modelId, synthesisId, { summary, individual, diagnostics });
+      await storage.updateModel(state.modelId, {
         synthesisStatus: 'current',
         publishedSynthesisId: synthesisId,
       });
@@ -352,7 +370,7 @@ export function useAHP(userId: string): UseAHPReturn {
       dispatch({ type: 'SET_LOADING', payload: false });
 
     } catch (err) {
-      storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
+      await storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
       dispatch({ type: 'SET_ERROR', payload: (err as Error).message });
       dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'out_of_date' } });
     }
@@ -362,9 +380,9 @@ export function useAHP(userId: string): UseAHPReturn {
     dispatch({ type: 'RESET' });
   }, []);
 
-  const deleteModel = useCallback(() => {
+  const deleteModel = useCallback(async (): Promise<void> => {
     if (!state.modelId) return;
-    storage.deleteModel(state.modelId);
+    await storage.deleteModel(state.modelId);
     dispatch({ type: 'RESET' });
   }, [state.modelId]);
 
