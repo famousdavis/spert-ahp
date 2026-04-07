@@ -179,7 +179,7 @@ describe('LocalStorageAdapter', () => {
     it('add and retrieve collaborators', () => {
       adapter.createModel('m1', createModelDoc('T', 'G', 'u'), createStructureDoc());
       adapter.addCollaborator('m1', createCollaboratorDoc('user1', 'owner', true));
-      adapter.addCollaborator('m1', createCollaboratorDoc('user2', 'voter', true));
+      adapter.addCollaborator('m1', createCollaboratorDoc('user2', 'editor', true));
 
       const collabs = adapter.getCollaborators('m1');
       expect(collabs.length).toBe(2);

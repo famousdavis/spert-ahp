@@ -3,7 +3,7 @@
 export type ModelStatus = 'setup' | 'open' | 'closed' | 'synthesized' | 'reopened';
 export type CompletionTier = 1 | 2 | 3 | 4;
 export type CRConfidence = 'none' | 'low' | 'moderate' | 'full';
-export type CollaboratorRole = 'owner' | 'facilitator' | 'voter' | 'observer';
+export type CollaboratorRole = 'owner' | 'editor' | 'viewer';
 export type ResponseStatus = 'in_progress' | 'submitted';
 export type SynthesisStatus = 'current' | 'out_of_date' | 'computing';
 export type DisagreementPresetName = 'strict' | 'standard' | 'exploratory';
