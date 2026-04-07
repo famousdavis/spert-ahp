@@ -8,7 +8,12 @@ export type StorageMode = 'local' | 'cloud';
 
 export interface StorageContextType {
   adapter: StorageAdapter;
+  /** User's mode preference (what the radio binds to). */
   mode: StorageMode;
+  /** Mode actually backing the adapter. Equals `mode` when signed in to cloud,
+   *  but falls back to 'local' when cloud is preferred but the user isn't
+   *  signed in yet. */
+  effectiveMode: StorageMode;
   switchMode: (mode: StorageMode) => Promise<void>;
 }
 
@@ -67,7 +72,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   const effectiveMode: StorageMode = adapter instanceof FirestoreAdapter ? 'cloud' : 'local';
 
   return (
-    <StorageContext.Provider value={{ adapter, mode: effectiveMode, switchMode }}>
+    <StorageContext.Provider value={{ adapter, mode, effectiveMode, switchMode }}>
       {children}
     </StorageContext.Provider>
   );

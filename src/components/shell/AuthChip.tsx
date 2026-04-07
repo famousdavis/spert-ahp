@@ -9,14 +9,14 @@ const BRAND = '#0070f3';
 
 export default function AuthChip({ onClick }: AuthChipProps) {
   const { user, firebaseAvailable, loading } = useAuth();
-  const { mode } = useStorage();
+  const { effectiveMode } = useStorage();
 
   // Hide entirely when Firebase isn't configured — no sign-in option exists
   if (!firebaseAvailable) return null;
   if (loading) return null;
 
   // Signed in + cloud mode: avatar + name | cloud icon
-  if (user && mode === 'cloud') {
+  if (user && effectiveMode === 'cloud') {
     const firstName = getFirstName(user);
     const initial = (firstName[0] ?? '?').toUpperCase();
     return (
