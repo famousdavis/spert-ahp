@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.2.1 (April 7, 2026)
+
+### Fixed
+- Cloud storage sign-in flow replaced with the standard pattern used by other SPERT Suite apps — sign-in buttons are now always visible when cloud storage is available, and the Local/Cloud radio only becomes active after signing in
+- Removed the "radio-first" UX that caused a deadlock where clicking Cloud while signed out did nothing
+- StorageContext reverted to the canonical single-mode shape from ARCHITECTURE.md §4.4
+
 ## v0.2.0 (April 7, 2026)
 
 ### Cloud Storage

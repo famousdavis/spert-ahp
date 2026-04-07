@@ -24,8 +24,8 @@ export function TestProviders({ children }: { children: ReactNode }) {
         value={{
           adapter,
           mode: 'local',
-          effectiveMode: 'local',
-          switchMode: async () => {},
+          isCloudAvailable: false,
+          switchMode: () => {},
         }}
       >
         {children}
