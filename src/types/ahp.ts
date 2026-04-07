@@ -3,7 +3,7 @@
 export type ModelStatus = 'setup' | 'open' | 'closed' | 'synthesized' | 'reopened';
 export type CompletionTier = 1 | 2 | 3 | 4;
 export type CRConfidence = 'none' | 'low' | 'moderate' | 'full';
-export type CollaboratorRole = 'owner' | 'facilitator' | 'voter' | 'observer';
+export type CollaboratorRole = 'owner' | 'editor' | 'viewer';
 export type ResponseStatus = 'in_progress' | 'submitted';
 export type SynthesisStatus = 'current' | 'out_of_date' | 'computing';
 export type DisagreementPresetName = 'strict' | 'standard' | 'exploratory';
@@ -42,6 +42,12 @@ export interface DisagreementConfig {
 
 // ─── Document Types (storage layer) ──────────────────────────
 
+export interface ChangeLogEntry {
+  action: 'created' | 'uploaded' | string;
+  timestamp: number;
+  actor?: string;
+}
+
 export interface ModelDoc {
   title: string;
   goal: string;
@@ -52,6 +58,10 @@ export interface ModelDoc {
   synthesisStatus: SynthesisStatus | null;
   disagreementConfig: DisagreementConfig;
   publishedSynthesisId: string | null;
+  /** Workspace UUID that first created the model (fingerprinting). */
+  _originRef: string;
+  /** Append-only provenance log. */
+  _changeLog: ChangeLogEntry[];
 }
 
 export interface StructureDoc {
@@ -236,25 +246,27 @@ export interface SynthesisConfidenceThreshold {
 // ─── Storage Interface ───────────────────────────────────────
 
 export interface StorageAdapter {
-  createModel(modelId: string, metaDoc: ModelDoc, structureDoc: StructureDoc): void;
-  getModel(modelId: string): { meta: ModelDoc; structure: StructureDoc } | null;
-  updateModel(modelId: string, partialMeta: Partial<ModelDoc>): void;
-  deleteModel(modelId: string): void;
-  listModels(): ModelIndexEntry[];
-  getStructure(modelId: string): StructureDoc | null;
-  updateStructure(modelId: string, structureDoc: StructureDoc): void;
-  addCollaborator(modelId: string, collaboratorDoc: CollaboratorDoc): void;
-  getCollaborators(modelId: string): CollaboratorDoc[];
-  updateCollaborator(modelId: string, userId: string, partial: Partial<CollaboratorDoc>): void;
-  getResponse(modelId: string, userId: string): ResponseDoc | null;
-  createResponse(modelId: string, responseDoc: ResponseDoc): void;
-  updateResponse(modelId: string, userId: string, partial: Partial<ResponseDoc>): void;
-  saveComparisons(modelId: string, userId: string, layer: string, comparisons: ComparisonMap): void;
-  getComparisons(modelId: string, userId: string, layer: string): ComparisonMap;
-  saveSynthesis(modelId: string, synthesisId: string, docs: Partial<SynthesisBundle>): void;
-  getSynthesis(modelId: string, synthesisId: string): SynthesisBundle | null;
+  createModel(modelId: string, metaDoc: ModelDoc, structureDoc: StructureDoc): Promise<void>;
+  getModel(modelId: string): Promise<{ meta: ModelDoc; structure: StructureDoc } | null>;
+  updateModel(modelId: string, partialMeta: Partial<ModelDoc>): Promise<void>;
+  deleteModel(modelId: string): Promise<void>;
+  listModels(): Promise<ModelIndexEntry[]>;
+  getStructure(modelId: string): Promise<StructureDoc | null>;
+  updateStructure(modelId: string, structureDoc: StructureDoc): Promise<void>;
+  addCollaborator(modelId: string, collaboratorDoc: CollaboratorDoc): Promise<void>;
+  getCollaborators(modelId: string): Promise<CollaboratorDoc[]>;
+  updateCollaborator(modelId: string, userId: string, partial: Partial<CollaboratorDoc>): Promise<void>;
+  getResponse(modelId: string, userId: string): Promise<ResponseDoc | null>;
+  createResponse(modelId: string, responseDoc: ResponseDoc): Promise<void>;
+  updateResponse(modelId: string, userId: string, partial: Partial<ResponseDoc>): Promise<void>;
+  saveComparisons(modelId: string, userId: string, layer: string, comparisons: ComparisonMap): Promise<void>;
+  getComparisons(modelId: string, userId: string, layer: string): Promise<ComparisonMap>;
+  saveSynthesis(modelId: string, synthesisId: string, docs: Partial<SynthesisBundle>): Promise<void>;
+  getSynthesis(modelId: string, synthesisId: string): Promise<SynthesisBundle | null>;
+  // Subscription method stays sync-returning — returns the unsubscribe function.
+  // Responses are delivered via the same model subscription (they're embedded in
+  // the monolithic document), so subscribeResponses was removed in Phase 7.
   subscribeModel(modelId: string, callback: (data: unknown) => void): () => void;
-  subscribeResponses(modelId: string, callback: (data: unknown) => void): () => void;
 }
 
 // ─── useAHP State ────────────────────────────────────────────
@@ -271,14 +283,14 @@ export interface AHPState {
 }
 
 export interface AHPActions {
-  createModel: (title: string, goal: string) => string;
-  loadModel: (modelId: string) => void;
-  updateModel: (partialMeta: Partial<ModelDoc>) => void;
-  updateStructure: (newStructure: StructureDoc) => void;
-  saveComparisons: (layer: string, comparisons: ComparisonMap) => void;
+  createModel: (title: string, goal: string) => Promise<string>;
+  loadModel: (modelId: string) => Promise<void>;
+  updateModel: (partialMeta: Partial<ModelDoc>) => Promise<void>;
+  updateStructure: (newStructure: StructureDoc) => Promise<void>;
+  saveComparisons: (layer: string, comparisons: ComparisonMap) => Promise<void>;
   runSynthesis: () => Promise<void>;
   closeModel: () => void;
-  deleteModel: () => void;
+  deleteModel: () => Promise<void>;
   storage: StorageAdapter;
 }
 

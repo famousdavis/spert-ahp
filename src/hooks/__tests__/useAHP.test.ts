@@ -1,17 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAHP } from '../useAHP';
+import { TestProviders } from '../../__tests__/test-utils';
 
 describe('useAHP', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('creates a model with correct defaults', () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+  it('creates a model with correct defaults', async () => {
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
-    act(() => {
-      result.current.createModel('Test Decision', 'Find the best option');
+    await act(async () => {
+      await result.current.createModel('Test Decision', 'Find the best option');
     });
 
     expect(result.current.modelId).toBeTruthy();
@@ -26,11 +27,11 @@ describe('useAHP', () => {
     expect(result.current.collaborators[0]!.isVoting).toBe(true);
   });
 
-  it('updates structure', () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+  it('updates structure', async () => {
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
-    act(() => {
-      result.current.createModel('Test', 'Goal');
+    await act(async () => {
+      await result.current.createModel('Test', 'Goal');
     });
 
     const newStructure = {
@@ -45,27 +46,27 @@ describe('useAHP', () => {
       structureVersion: 1,
     };
 
-    act(() => {
-      result.current.updateStructure(newStructure);
+    await act(async () => {
+      await result.current.updateStructure(newStructure);
     });
 
     expect(result.current.structure!.criteria.length).toBe(2);
     expect(result.current.structure!.alternatives.length).toBe(2);
   });
 
-  it('saves and retrieves comparisons', () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+  it('saves and retrieves comparisons', async () => {
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
-    act(() => {
-      result.current.createModel('Test', 'Goal');
+    await act(async () => {
+      await result.current.createModel('Test', 'Goal');
     });
 
-    act(() => {
-      result.current.saveComparisons('criteria', { '0,1': 3 });
+    await act(async () => {
+      await result.current.saveComparisons('criteria', { '0,1': 3 });
     });
 
     // Verify through storage
-    const comp = result.current.storage.getComparisons(
+    const comp = await result.current.storage.getComparisons(
       result.current.modelId!,
       'test-user',
       'criteria',
@@ -73,56 +74,56 @@ describe('useAHP', () => {
     expect(comp['0,1']).toBe(3);
   });
 
-  it('loads a previously created model', () => {
-    const { result: r1 } = renderHook(() => useAHP('test-user'));
+  it('loads a previously created model', async () => {
+    const { result: r1 } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
     let modelId: string | undefined;
 
-    act(() => {
-      modelId = r1.current.createModel('Saved Model', 'Test persistence');
+    await act(async () => {
+      modelId = await r1.current.createModel('Saved Model', 'Test persistence');
     });
 
     // New hook instance loading existing model
-    const { result: r2 } = renderHook(() => useAHP('test-user'));
+    const { result: r2 } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
-    act(() => {
-      r2.current.loadModel(modelId!);
+    await act(async () => {
+      await r2.current.loadModel(modelId!);
     });
 
     expect(r2.current.model!.title).toBe('Saved Model');
     expect(r2.current.collaborators.length).toBe(1);
   });
 
-  it('deletes a model', () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+  it('deletes a model', async () => {
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
-    act(() => {
-      result.current.createModel('To Delete', 'Goal');
+    await act(async () => {
+      await result.current.createModel('To Delete', 'Goal');
     });
 
-    act(() => {
-      result.current.deleteModel();
+    await act(async () => {
+      await result.current.deleteModel();
     });
 
     expect(result.current.modelId).toBeNull();
     expect(result.current.model).toBeNull();
   });
 
-  it('marks synthesis out_of_date when comparisons change after current', () => {
-    const { result } = renderHook(() => useAHP('test-user'));
+  it('marks synthesis out_of_date when comparisons change after current', async () => {
+    const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 
-    act(() => {
-      result.current.createModel('Test', 'Goal');
+    await act(async () => {
+      await result.current.createModel('Test', 'Goal');
     });
 
     // Simulate synthesisStatus = 'current'
-    act(() => {
-      result.current.updateModel({ synthesisStatus: 'current' });
+    await act(async () => {
+      await result.current.updateModel({ synthesisStatus: 'current' });
     });
 
     expect(result.current.model!.synthesisStatus).toBe('current');
 
-    act(() => {
-      result.current.saveComparisons('criteria', { '0,1': 5 });
+    await act(async () => {
+      await result.current.saveComparisons('criteria', { '0,1': 5 });
     });
 
     expect(result.current.model!.synthesisStatus).toBe('out_of_date');

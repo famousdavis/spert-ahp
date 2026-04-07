@@ -20,23 +20,23 @@ export default function ModelSetup({ ahpState, userId: _userId }: ModelSetupProp
 
   useEffect(() => {
     if (!hasModel) {
-      setSavedModels(ahpState.storage.listModels());
+      void ahpState.storage.listModels().then(setSavedModels);
     }
   }, [hasModel, ahpState.storage]);
 
   const handleCreate = () => {
     if (!title.trim()) return;
-    ahpState.createModel(title.trim(), goal.trim());
+    void ahpState.createModel(title.trim(), goal.trim());
   };
 
   const handleLoad = (modelId: string) => {
-    ahpState.loadModel(modelId);
+    void ahpState.loadModel(modelId);
   };
 
-  const handleDelete = (modelId: string, modelTitle: string) => {
+  const handleDelete = async (modelId: string, modelTitle: string) => {
     if (!window.confirm(`Delete "${modelTitle}"? This cannot be undone.`)) return;
-    ahpState.storage.deleteModel(modelId);
-    setSavedModels(ahpState.storage.listModels());
+    await ahpState.storage.deleteModel(modelId);
+    setSavedModels(await ahpState.storage.listModels());
   };
 
   const handleStructureChange = (field: 'criteria' | 'alternatives', value: unknown) => {

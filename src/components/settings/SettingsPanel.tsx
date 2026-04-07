@@ -1,4 +1,5 @@
 import ThresholdConfigurator from './ThresholdConfigurator';
+import SharingSection from './SharingSection';
 import type { UseAHPReturn } from '../../types/ahp';
 
 interface SettingsPanelProps {
@@ -29,9 +30,11 @@ export default function SettingsPanel({ ahpState }: SettingsPanelProps) {
         </div>
       </div>
 
+      <SharingSection ahpState={ahpState} />
+
       <ThresholdConfigurator
         config={ahpState.model?.disagreementConfig ?? null}
-        onUpdate={(partial) => ahpState.updateModel(partial)}
+        onUpdate={(partial) => { void ahpState.updateModel(partial); }}
       />
 
       <div className="border border-red-200 dark:border-red-800 rounded-lg p-4">

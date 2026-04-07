@@ -7,7 +7,8 @@ import ModelSetup from './components/setup/ModelSetup';
 import ComparisonPanel from './components/comparison/ComparisonPanel';
 import ResultsPanel from './components/results/ResultsPanel';
 import SettingsPanel from './components/settings/SettingsPanel';
-import { useSession } from './hooks/useSession';
+import AppSettingsModal from './components/settings/AppSettingsModal';
+import { useUserId } from './hooks/useUserId';
 import { useAHP } from './hooks/useAHP';
 import { useTheme } from './hooks/useTheme';
 
@@ -17,7 +18,8 @@ type Page = TabName | 'About' | 'Changelog';
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>('Setup');
-  const { userId } = useSession();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const userId = useUserId();
   const ahpState = useAHP(userId);
   useTheme(); // Initialize theme on mount
 
@@ -44,7 +46,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-      <AppHeader onAboutClick={() => setActivePage('About')} />
+      <AppHeader onAboutClick={() => setActivePage('About')} onOpenSettings={() => setSettingsOpen(true)} />
 
       <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-5xl mx-auto flex px-6">
@@ -71,6 +73,8 @@ export default function App() {
       </main>
 
       <AppFooter onNavigate={(p) => setActivePage(p as Page)} />
+
+      <AppSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
