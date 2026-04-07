@@ -21,7 +21,7 @@ async function lookupUidByEmail(email: string): Promise<{ uid: string; displayNa
 
 export default function SharingSection({ ahpState }: SharingSectionProps) {
   const { user } = useAuth();
-  const { mode } = useStorage();
+  const { effectiveMode } = useStorage();
   const [collabs, setCollabs] = useState<CollaboratorDoc[]>([]);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<CollaboratorRole>('editor');
@@ -33,7 +33,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
     setCollabs(ahpState.collaborators);
   }, [ahpState.collaborators]);
 
-  if (mode !== 'cloud' || !user || !ahpState.modelId) return null;
+  if (effectiveMode !== 'cloud' || !user || !ahpState.modelId) return null;
   const currentRole = ahpState.collaborators.find((c) => c.userId === user.uid)?.role;
   if (currentRole !== 'owner') return null;
 
