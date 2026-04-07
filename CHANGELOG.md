@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.2.2 (April 7, 2026)
+
+### Cloud Storage
+- Added explicit Terms of Service and Privacy Policy consent before cloud sign-in — first-time users (and users on an outdated ToS version) must check a box and click "Enable Cloud Storage" before any Firebase Auth popup is opened
+- Consent is recorded both locally (fast path on subsequent sign-ins) and in Firestore at `users/{uid}` with the current ToS version
+- Outdated consent versions force a sign-out and re-consent
+
 ## v0.2.1 (April 7, 2026)
 
 ### Fixed

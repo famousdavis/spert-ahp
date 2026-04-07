@@ -79,7 +79,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
             onClick={() => onNavigate?.('Changelog')}
             className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
           >
-            v0.2.1
+            v0.2.2
           </button>
         </p>
       </Section>

@@ -11,7 +11,7 @@ export default function AppFooter({ onNavigate }: AppFooterProps) {
           onClick={() => onNavigate?.('Changelog')}
           className="text-blue-600 hover:text-blue-700"
         >
-          Version 0.2.1
+          Version 0.2.2
         </button>
         {" "}| Licensed under GNU GPL v3
       </div>
