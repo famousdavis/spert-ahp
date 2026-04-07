@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.1',
+    date: '2026-04-07',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Cloud storage sign-in flow replaced with the standard pattern used by other SPERT Suite apps — sign-in buttons are now always visible when cloud storage is available, and the Local/Cloud radio only becomes active after signing in',
+          'Removed the "radio-first" UX that caused a deadlock where clicking Cloud while signed out did nothing',
+          'StorageContext reverted to the canonical single-mode shape from ARCHITECTURE.md \u00A74.4',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.2.0',
     date: '2026-04-07',
     sections: [

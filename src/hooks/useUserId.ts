@@ -11,8 +11,8 @@ import { useSession } from './useSession';
  * receive userId as a prop don't need to know which source it came from.
  */
 export function useUserId(): string {
-  const { effectiveMode } = useStorage();
+  const { mode } = useStorage();
   const { user } = useAuth();
   const { userId: localId } = useSession();
-  return effectiveMode === 'cloud' && user ? user.uid : localId;
+  return mode === 'cloud' && user ? user.uid : localId;
 }

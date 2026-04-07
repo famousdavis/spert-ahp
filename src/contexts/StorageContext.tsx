@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { LocalStorageAdapter } from '../storage/LocalStorageAdapter';
 import { FirestoreAdapter } from '../storage/FirestoreAdapter';
+import { isFirebaseAvailable } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import type { StorageAdapter } from '../types/ahp';
 
@@ -8,55 +9,64 @@ export type StorageMode = 'local' | 'cloud';
 
 export interface StorageContextType {
   adapter: StorageAdapter;
-  /** User's mode preference (what the radio binds to). */
+  /** Effective mode: equal to what the active adapter is backed by. Cloud only
+   *  when Firebase is configured, a user is signed in, and the user's persisted
+   *  preference is 'cloud'. Otherwise 'local'. */
   mode: StorageMode;
-  /** Mode actually backing the adapter. Equals `mode` when signed in to cloud,
-   *  but falls back to 'local' when cloud is preferred but the user isn't
-   *  signed in yet. */
-  effectiveMode: StorageMode;
-  switchMode: (mode: StorageMode) => Promise<void>;
+  /** Whether Firebase is configured for this deployment. Used to hide cloud
+   *  UI entirely when Firebase isn't available. */
+  isCloudAvailable: boolean;
+  /** Switch between local and cloud modes. Persists the preference. */
+  switchMode: (mode: StorageMode) => void;
 }
 
 export const StorageContext = createContext<StorageContextType | null>(null);
 
 const MODE_KEY = 'ahp/storageMode';
 
-function getInitialMode(): StorageMode {
+function getPersistedMode(): StorageMode {
+  if (typeof window === 'undefined') return 'local';
   const saved = localStorage.getItem(MODE_KEY);
   return saved === 'cloud' ? 'cloud' : 'local';
 }
 
 export function StorageProvider({ children }: { children: ReactNode }) {
-  const { user, loading: authLoading, firebaseAvailable } = useAuth();
-  const [mode, setMode] = useState<StorageMode>(getInitialMode);
+  const { user, loading: authLoading } = useAuth();
+
+  // Persisted preference — what the user selected. Not exposed via context.
+  const [persistedMode, setPersistedMode] = useState<StorageMode>(getPersistedMode);
+
+  // Effective mode: cloud only if Firebase available + signed in + user chose cloud.
+  // This is the single `mode` field exposed to consumers — equivalent to the
+  // adapter-backing mode (canonical pattern from ARCHITECTURE.md §4.4).
+  const effectiveMode: StorageMode =
+    isFirebaseAvailable && user && persistedMode === 'cloud' ? 'cloud' : 'local';
 
   // Lazy initializer — avoids new instance on every render (GanttApp lesson 2)
   const [adapter, setAdapter] = useState<StorageAdapter>(() => new LocalStorageAdapter());
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // CRITICAL: Hold ready = false while auth is resolving. Without this, the
-    // effect fires with user === null (pre-resolution), creates a LocalStorageAdapter,
-    // flips ready = true, then re-fires when auth resolves and swaps to
-    // FirestoreAdapter — causing a brief flash of local-mode UI with a stale
-    // project list before cloud data loads.
-    if (authLoading) {
+    // CRITICAL: Hold ready = false while auth is resolving if cloud is preferred.
+    // Otherwise we'd briefly create a LocalStorageAdapter, flip ready = true,
+    // then re-fire when auth resolves and swap to FirestoreAdapter — flashing
+    // local-mode UI with a stale project list before cloud data loads.
+    if (authLoading && persistedMode === 'cloud' && isFirebaseAvailable) {
       setReady(false);
       return;
     }
 
-    if (mode === 'cloud' && user && firebaseAvailable) {
+    if (effectiveMode === 'cloud' && user) {
       setAdapter(new FirestoreAdapter(user.uid));
     } else {
       setAdapter(new LocalStorageAdapter());
     }
     setReady(true);
-  }, [mode, user, authLoading, firebaseAvailable]);
+  }, [effectiveMode, user, authLoading, persistedMode]);
 
-  const switchMode = async (newMode: StorageMode): Promise<void> => {
+  const switchMode = (newMode: StorageMode): void => {
     localStorage.setItem(MODE_KEY, newMode);
-    setMode(newMode);
-    // Migration is handled by the caller (AppSettingsModal) in Phase 6.
+    setPersistedMode(newMode);
   };
 
   // storageReady gate — don't render children until the adapter is settled
@@ -69,10 +79,15 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  const effectiveMode: StorageMode = adapter instanceof FirestoreAdapter ? 'cloud' : 'local';
-
   return (
-    <StorageContext.Provider value={{ adapter, mode, effectiveMode, switchMode }}>
+    <StorageContext.Provider
+      value={{
+        adapter,
+        mode: effectiveMode,
+        isCloudAvailable: isFirebaseAvailable,
+        switchMode,
+      }}
+    >
       {children}
     </StorageContext.Provider>
   );
