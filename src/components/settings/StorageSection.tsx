@@ -39,17 +39,11 @@ export default function StorageSection() {
   const handleSelectCloud = async () => {
     setError(null);
     setMigrationResult(null);
-    if (!user) {
-      // Sign-in will happen via the buttons below — don't switch mode yet
-      return;
-    }
+    // Switch mode immediately so the radio reflects the selection and the
+    // sign-in buttons render. If the user isn't signed in yet, StorageContext
+    // keeps the LocalStorageAdapter active (see its useEffect) until auth
+    // resolves — so no writes go to the wrong place in the meantime.
     await switchMode('cloud');
-    // If there's local data and we haven't uploaded before, offer upload
-    const local = new LocalStorageAdapter();
-    const models = await local.listModels();
-    if (models.length > 0 && !hasUploadedToCloud()) {
-      // Confirmation handled by a separate UI block below
-    }
   };
 
   const handleUpload = async () => {
