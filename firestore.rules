@@ -1,0 +1,64 @@
+rules_version = '2';
+
+// SPERT-AHP Firestore security rules.
+//
+// This file is for version control and reference only. The canonical deployed
+// rules live in the GanttApp repo at /Users/william/Documents/GanttApp/firestore.rules
+// and are merged across all SPERT suite apps before being pasted into the
+// Firebase Console for deployment.
+//
+// Monolithic document model: one doc per AHP model at spertahp_projects/{modelId}.
+// All data (meta, structure, collaborators, responses, synthesis) is inlined.
+// No subcollections — no get() helpers needed, all checks use resource.data inline.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // ── spertahp_projects ─────────────────────────────────────
+    match /spertahp_projects/{modelId} {
+      // Collection queries must use `allow list` because Firestore rules cannot
+      // validate dynamic map-key where() clauses. Client code uses
+      // where('members.<uid>', 'in', [...]) to filter server-side.
+      allow list: if isAuth();
+
+      allow get: if isAuth()
+                 && request.auth.uid in resource.data.members;
+
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner';
+
+      // Editors can update project data, but only owners can modify
+      // owner/members (prevents privilege escalation).
+      allow update: if isAuth()
+                    && request.auth.uid in resource.data.members
+                    && resource.data.members[request.auth.uid] in ['owner', 'editor']
+                    && (
+                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members'])
+                      || resource.data.members[request.auth.uid] == 'owner'
+                    );
+
+      allow delete: if isAuth()
+                    && resource.data.members[request.auth.uid] == 'owner';
+    }
+
+    // ── spertahp_profiles ─────────────────────────────────────
+    // Any authenticated user can read profiles (needed for email → uid
+    // lookup in the sharing flow). Users can only write their own profile.
+    match /spertahp_profiles/{uid} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+
+    // ── spertahp_settings ─────────────────────────────────────
+    // Per-user global settings (currently Export Attribution only).
+    // Private to the owner.
+    match /spertahp_settings/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+  }
+}
