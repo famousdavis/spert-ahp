@@ -1,5 +1,24 @@
 # SPERT® AHP — Changelog
 
+## v0.2.0 (April 7, 2026)
+
+### Cloud Storage
+- Optional Firebase-backed cloud storage — sign in with Google or Microsoft
+- Global Settings modal (gear icon in header) for storage mode, sign-in, and export attribution
+- Auth chip in header: split pill showing account status and quick access to settings
+- Local → Cloud one-way migration with userId rewrite and provenance preservation
+- Real-time sync across devices and tabs via Firestore onSnapshot
+- Per-decision sharing (cloud mode, owner only) — add collaborators by email as editor or viewer
+- Owner-controlled voting participation toggle for editors
+
+### Architecture
+- StorageAdapter interface converted to async — all methods return Promises
+- Context-injected storage adapter (LocalStorageAdapter / FirestoreAdapter)
+- AuthProvider + StorageProvider with storage-ready gate to prevent auth-loading race
+- Monolithic Firestore document per decision (`spertahp_projects/{modelId}`)
+- Lightweight fingerprinting: `_originRef` (workspace UUID) and `_changeLog` on ModelDoc
+- Simplified CollaboratorRole: owner / editor / viewer
+
 ## v0.1.1 (April 5, 2026)
 
 ### Legal
