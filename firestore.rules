@@ -20,10 +20,11 @@ service cloud.firestore {
 
     // ── spertahp_projects ─────────────────────────────────────
     match /spertahp_projects/{modelId} {
-      // Collection queries must use `allow list` because Firestore rules cannot
-      // validate dynamic map-key where() clauses. Client code uses
-      // where('members.<uid>', 'in', [...]) to filter server-side.
-      allow list: if isAuth();
+      // Client-side code uses where('members.<uid>', 'in', [...]) to filter
+      // server-side. `allow list` still checks membership per-doc, matching
+      // the pattern used by all other SPERT suite apps.
+      allow list: if isAuth()
+                  && request.auth.uid in resource.data.members;
 
       allow get: if isAuth()
                  && request.auth.uid in resource.data.members;

@@ -17,3 +17,6 @@ src/**/*.js
 src/**/*.js.map
 vite.config.js
 vite.config.js.map
+
+# Merged firestore rules — local-only artifact for Firebase Console paste
+firestore.rules.merged
