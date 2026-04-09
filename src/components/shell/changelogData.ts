@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.3',
+    date: '2026-04-09',
+    sections: [
+      {
+        title: 'Cloud Storage',
+        items: [
+          'AuthChip is now a single click target in both signed-in and signed-out states — the whole pill (avatar, name, divider, cloud icon) is one button',
+          'Clicking the signed-in chip opens a lightweight account popover with the user\u2019s name, email, and a Sign Out button — no more navigating to the Settings tab to sign out',
+          'Popover dismisses via Escape, outside click, or Cancel; Sign Out shows a "Signing out\u2026" loading state and guards against re-entry',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.2.2',
     date: '2026-04-07',
     sections: [

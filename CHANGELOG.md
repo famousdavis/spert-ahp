@@ -1,5 +1,15 @@
 # SPERT® AHP — Changelog
 
+## v0.2.3 (April 9, 2026)
+
+### Cloud Storage
+- AuthChip is now a single click target in both signed-in and signed-out states — the whole pill (avatar, name, divider, cloud icon) is one button
+- Clicking the signed-in chip opens a lightweight account popover with the user's name, email, and a Sign Out button — no more navigating to the Settings tab to sign out
+- Popover dismisses via Escape, outside click, or Cancel; Sign Out shows a "Signing out…" loading state and guards against re-entry
+
+### Maintenance
+- Removed stale compiled `.js`/`.jsx` artifacts from `src/` that were shadowing `.tsx` sources and causing Vite to serve stale code
+
 ## v0.2.2 (April 7, 2026)
 
 ### Cloud Storage
