@@ -1,7 +1,10 @@
+import { useRef, useState } from 'react';
 import { useAuth, getFirstName } from '../../contexts/AuthContext';
 import { useStorage } from '../../contexts/StorageContext';
+import AccountPopover from './AccountPopover';
 
 interface AuthChipProps {
+  /** Click handler for the signed-out branch (opens sign-in / settings). Ignored when signed in — the signed-in chip opens its own popover. */
   onClick: () => void;
 }
 
@@ -10,45 +13,57 @@ const BRAND = '#0070f3';
 export default function AuthChip({ onClick }: AuthChipProps) {
   const { user, firebaseAvailable, loading } = useAuth();
   const { mode } = useStorage();
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   // Hide entirely when Firebase isn't configured — no sign-in option exists
   if (!firebaseAvailable) return null;
   if (loading) return null;
 
-  // Signed in + cloud mode: avatar + name | cloud icon
+  // Signed in + cloud mode: avatar + name | cloud icon  (whole pill is one button)
   if (user && mode === 'cloud') {
     const firstName = getFirstName(user);
     const initial = (firstName[0] ?? '?').toUpperCase();
     return (
-      <button
-        onClick={onClick}
-        className="flex items-center rounded-full border border-gray-300 dark:border-gray-600 overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-700"
-        aria-label="Account settings"
-      >
-        <span className="flex items-center gap-1.5 pl-1 pr-2 py-0.5">
-          <span
-            className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-white text-[11px] font-medium"
-            style={{ backgroundColor: BRAND }}
-          >
-            {initial}
+      <>
+        <button
+          ref={anchorRef}
+          type="button"
+          onClick={() => setPopoverOpen((v) => !v)}
+          aria-haspopup="dialog"
+          aria-expanded={popoverOpen}
+          aria-label="Account menu"
+          className="flex items-center rounded-full border border-gray-300 dark:border-gray-600 overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+        >
+          <span className="flex items-center gap-1.5 pl-1 pr-2 py-0.5">
+            <span
+              className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-white text-[11px] font-medium"
+              style={{ backgroundColor: BRAND }}
+            >
+              {initial}
+            </span>
+            <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100">{firstName}</span>
           </span>
-          <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100">{firstName}</span>
-        </span>
-        <span className="border-l border-gray-300 dark:border-gray-600 px-2 py-1" style={{ color: BRAND }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17.5 19H9a7 7 0 1 1 6.71-9H17.5a4.5 4.5 0 0 1 0 9z" />
-          </svg>
-        </span>
-      </button>
+          <span className="border-l border-gray-300 dark:border-gray-600 px-2 py-1" style={{ color: BRAND }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9H17.5a4.5 4.5 0 0 1 0 9z" />
+            </svg>
+          </span>
+        </button>
+        {popoverOpen && (
+          <AccountPopover anchorRef={anchorRef} onClose={() => setPopoverOpen(false)} />
+        )}
+      </>
     );
   }
 
-  // Local / signed out: lock icon + "Local only" | "Sign in"
+  // Local / signed out: lock icon + "Local only" | "Sign in"  (single button)
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="flex items-center rounded-full border border-gray-300 dark:border-gray-600 overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-700"
       aria-label="Sign in"
+      className="flex items-center rounded-full border border-gray-300 dark:border-gray-600 overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
     >
       <span className="flex items-center gap-1.5 px-2 py-0.5 text-[13px] text-gray-500 dark:text-gray-400">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
