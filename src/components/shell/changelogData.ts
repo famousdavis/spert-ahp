@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.4',
+    date: '2026-04-09',
+    sections: [
+      {
+        title: 'Documentation',
+        items: [
+          'Added Quick Reference Guide PDF to the About page \u2014 click "Open PDF" to view in a new browser tab',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.2.3',
     date: '2026-04-09',
     sections: [

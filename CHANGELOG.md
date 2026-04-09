@@ -1,5 +1,10 @@
 # SPERT® AHP — Changelog
 
+## v0.2.4 (April 9, 2026)
+
+### Documentation
+- Added Quick Reference Guide PDF to the About page — click "Open PDF" to view in a new browser tab
+
 ## v0.2.3 (April 9, 2026)
 
 ### Cloud Storage

@@ -70,6 +70,22 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
         </ul>
       </Section>
 
+      {/* Quick Reference Guide */}
+      <Section title="Quick Reference Guide">
+        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-3">
+          Open the quick reference guide for a printable overview of
+          SPERT<R /> AHP's features and workflow.
+        </p>
+        <a
+          href="/SPERT_AHP_Quick_Reference_Guide.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Open PDF
+        </a>
+      </Section>
+
       {/* Version Updates */}
       <Section title="Version Updates">
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
@@ -79,7 +95,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
             onClick={() => onNavigate?.('Changelog')}
             className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
           >
-            v0.2.3
+            v0.2.4
           </button>
         </p>
       </Section>
