@@ -15,9 +15,9 @@ export default function AppHeader({ onAboutClick, onOpenSettings }: AppHeaderPro
           SPERT<span className="text-gray-300 dark:text-gray-500 text-xs align-super">®</span> AHP
         </h1>
         <div className="flex items-center gap-2">
-          <AuthChip onClick={onOpenSettings} />
           <GearButton onClick={onOpenSettings} />
           <HeaderThemeToggle />
+          <AuthChip onClick={onOpenSettings} />
           <button
             onClick={onAboutClick}
             className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"

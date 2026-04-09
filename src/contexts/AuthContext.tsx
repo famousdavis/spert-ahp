@@ -268,8 +268,7 @@ export function useAuth(): AuthContextType {
 export function getFirstName(user: User | null): string {
   if (!user) return '';
   const name = user.displayName || user.email || '';
-  if (name.includes(',')) {
-    return name.split(',')[1]?.trim() || name;
-  }
-  return name.split(' ')[0] || name;
+  // Microsoft "Last, First Middle" → take the part after the comma, then first token
+  const afterComma = name.includes(',') ? (name.split(',')[1]?.trim() ?? name) : name;
+  return afterComma.split(/\s+/)[0] || afterComma;
 }
