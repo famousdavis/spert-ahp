@@ -32,7 +32,7 @@ export default function App() {
       case 'Compare':
         return <ComparisonPanel ahpState={ahpState} userId={userId} />;
       case 'Results':
-        return <ResultsPanel ahpState={ahpState} />;
+        return <ResultsPanel ahpState={ahpState} userId={userId} />;
       case 'Settings':
         return <SettingsPanel ahpState={ahpState} />;
       case 'About':

@@ -71,6 +71,9 @@ interface FirestoreModelDoc {
     diagnostics: SynthesisBundle['diagnostics'];
   } | null;
 
+  // Visibility controls
+  resultsVisibility?: ModelDoc['resultsVisibility'];
+
   // Fingerprinting
   _originRef: string;
   _changeLog: ModelDoc['_changeLog'];
@@ -101,6 +104,10 @@ function unwrapMeta(d: FirestoreModelDoc): ModelDoc {
     publishedSynthesisId: d.publishedSynthesisId,
     _originRef: d._originRef,
     _changeLog: d._changeLog ?? [],
+    resultsVisibility: d.resultsVisibility ?? {
+      showAggregatedToVoters: false,
+      showOwnRankingsToVoters: true,
+    },
   };
 }
 
@@ -404,12 +411,16 @@ export class FirestoreAdapter implements StorageAdapter {
       diagnostics: docs.diagnostics ?? (existing?.diagnostics as SynthesisBundle['diagnostics']),
     };
 
-    // Firestore does not support nested arrays. Serialize localPriorities (number[][])
-    // as a JSON string before writing, and deserialize on read in getSynthesis.
+    // Firestore does not support nested arrays. Serialize number[][] fields
+    // as JSON strings before writing, and deserialize on read in getSynthesis.
     const toWrite = JSON.parse(JSON.stringify(merged)) as Record<string, unknown>;
     if (merged.summary?.localPriorities) {
       (toWrite['summary'] as Record<string, unknown>)['localPriorities'] =
         JSON.stringify(merged.summary.localPriorities);
+    }
+    if (merged.individual?.individualLocalPriorities) {
+      (toWrite['individual'] as Record<string, unknown>)['individualLocalPriorities'] =
+        JSON.stringify(merged.individual.individualLocalPriorities);
     }
 
     await updateDoc(docRef(modelId), {
@@ -424,13 +435,22 @@ export class FirestoreAdapter implements StorageAdapter {
     const d = snap.data() as FirestoreModelDoc;
     if (!d.synthesis || d.synthesis.synthesisId !== synthesisId) return null;
     const summary = { ...d.synthesis.summary };
-    // Deserialize localPriorities if it was stored as a JSON string
+    // Deserialize nested arrays stored as JSON strings
     if (typeof summary.localPriorities === 'string') {
       summary.localPriorities = JSON.parse(summary.localPriorities as string) as number[][];
     }
+    const individual = {
+      individualPriorities: d.synthesis.individual?.individualPriorities ?? {},
+      individualCR: d.synthesis.individual?.individualCR ?? {},
+      individualAlternativeScores: d.synthesis.individual?.individualAlternativeScores ?? {},
+      individualLocalPriorities: typeof d.synthesis.individual?.individualLocalPriorities === 'string'
+        ? JSON.parse(d.synthesis.individual.individualLocalPriorities as unknown as string) as Record<string, number[][]>
+        : d.synthesis.individual?.individualLocalPriorities ?? {},
+      individualIncompleteCriteria: d.synthesis.individual?.individualIncompleteCriteria ?? {},
+    };
     return {
       summary,
-      individual: d.synthesis.individual,
+      individual,
       diagnostics: d.synthesis.diagnostics,
     };
   }

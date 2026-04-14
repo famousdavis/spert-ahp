@@ -99,6 +99,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     // Read-only fill — do not write back (keeps reads idempotent).
     if (!meta._originRef) meta._originRef = getOrCreateWorkspaceId();
     if (!meta._changeLog) meta._changeLog = [];
+    if (!meta.resultsVisibility) meta.resultsVisibility = { showAggregatedToVoters: false, showOwnRankingsToVoters: true };
     const structure = getJSON<StructureDoc>(key('models', modelId, 'structure'))!;
     return { meta, structure };
   }

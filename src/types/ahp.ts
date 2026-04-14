@@ -62,6 +62,11 @@ export interface ModelDoc {
   _originRef: string;
   /** Append-only provenance log. */
   _changeLog: ChangeLogEntry[];
+  /** Owner controls for what non-owners see on the Results tab. */
+  resultsVisibility?: {
+    showAggregatedToVoters: boolean;
+    showOwnRankingsToVoters: boolean;
+  };
 }
 
 export interface StructureDoc {
@@ -194,6 +199,9 @@ export interface SynthesisSummary {
 export interface SynthesisIndividual {
   individualPriorities: Record<string, number[]>;
   individualCR: Record<string, { criteria: ConsistencyResult }>;
+  individualAlternativeScores: Record<string, number[]>;
+  individualLocalPriorities: Record<string, number[][]>;
+  individualIncompleteCriteria: Record<string, string[]>;
 }
 
 export interface SynthesisDiagnostics {

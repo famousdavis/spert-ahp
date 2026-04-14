@@ -1,5 +1,25 @@
 # SPERT® AHP — Changelog
 
+## v0.5.0 (April 14, 2026)
+
+### Individual Voter Breakdown
+- Synthesis pipeline now computes per-voter factor weights, alternative scores, and global rankings
+- New "Individual Voter Rankings" section in Results with expandable per-voter cards showing factor weights, alternative scores, and CR
+- Grey "incomplete" badge flags factors where a voter had no alternative comparisons (uniform fallback applied)
+- VoterRadarChart now renders when 2+ voters have individual priority data
+
+### Results Visibility Controls
+- New owner-only "Results Visibility" section in Settings (cloud mode)
+- "Allow voters to see aggregated results" toggle (default: off) — owner decides when to share group results
+- "Allow voters to see their own rankings" toggle (default: on) — voters can review their individual breakdown
+- Non-owners see a placeholder message when aggregated results are hidden
+
+### Architecture
+- Extracted shared `useProfiles` hook from SharingSection for reuse across voter breakdown and sharing UI
+- `SynthesisIndividual` extended with `individualAlternativeScores`, `individualLocalPriorities`, and `individualIncompleteCriteria`
+- `ModelDoc` extended with optional `resultsVisibility` field (backward-compatible defaults)
+- Firestore serialization handles nested array fields in individual synthesis data
+
 ## v0.4.1 (April 13, 2026)
 
 ### Fixed

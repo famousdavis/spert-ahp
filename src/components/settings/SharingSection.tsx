@@ -1,14 +1,10 @@
-import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import { collection, query, where, getDocs, doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStorage } from '../../contexts/StorageContext';
+import { useProfiles } from '../../hooks/useProfiles';
 import type { UseAHPReturn, CollaboratorDoc, CollaboratorRole } from '../../types/ahp';
-
-interface ProfileInfo {
-  displayName: string;
-  email: string;
-}
 
 interface SharingSectionProps {
   ahpState: UseAHPReturn;
@@ -32,50 +28,14 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
   const [role, setRole] = useState<CollaboratorRole>('editor');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [profileMap, setProfileMap] = useState<Record<string, ProfileInfo>>({});
 
   // Only render for cloud-mode owners
   useEffect(() => {
     setCollabs(ahpState.collaborators);
   }, [ahpState.collaborators]);
 
-  // Fetch display profiles for all collaborators
-  useEffect(() => {
-    if (!db || collabs.length === 0) return;
-    let cancelled = false;
-
-    async function fetchProfiles() {
-      const map: Record<string, ProfileInfo> = {};
-      await Promise.all(
-        collabs.map(async (c) => {
-          // Use auth context for the current user to avoid an extra read
-          if (user && c.userId === user.uid) {
-            map[c.userId] = {
-              displayName: user.displayName ?? '',
-              email: user.email ?? '',
-            };
-            return;
-          }
-          try {
-            const snap = await getDoc(doc(db!, 'spertahp_profiles', c.userId));
-            if (snap.exists()) {
-              const data = snap.data() as { displayName?: string; email?: string };
-              map[c.userId] = {
-                displayName: data.displayName ?? '',
-                email: data.email ?? '',
-              };
-            }
-          } catch {
-            // Profile fetch failed — will fall back to truncated UID
-          }
-        }),
-      );
-      if (!cancelled) setProfileMap(map);
-    }
-
-    void fetchProfiles();
-    return () => { cancelled = true; };
-  }, [collabs, user]);
+  const collabUserIds = useMemo(() => collabs.map((c) => c.userId), [collabs]);
+  const profileMap = useProfiles(collabUserIds);
 
   if (mode !== 'cloud' || !user || !ahpState.modelId) return null;
   const currentRole = ahpState.collaborators.find((c) => c.userId === user.uid)?.role;

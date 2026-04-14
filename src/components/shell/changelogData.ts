@@ -9,6 +9,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.0',
+    date: '2026-04-14',
+    sections: [
+      {
+        title: 'Individual Voter Breakdown',
+        items: [
+          'Per-voter factor weights, alternative scores, and global rankings computed during synthesis',
+          'Expandable per-voter cards in Results showing factor weights, alternative scores, and CR',
+          'Grey "incomplete" badge flags factors where uniform fallback was applied',
+          'VoterRadarChart renders when 2+ voters have individual priority data',
+        ],
+      },
+      {
+        title: 'Results Visibility Controls',
+        items: [
+          'Owner-only "Results Visibility" settings (cloud mode) control what voters see',
+          '"Allow voters to see aggregated results" toggle (default: off)',
+          '"Allow voters to see their own rankings" toggle (default: on)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.4.1',
     date: '2026-04-13',
     sections: [

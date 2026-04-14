@@ -273,11 +273,12 @@ export function useAHP(userId: string): UseAHPReturn {
 
       const globalScores = synthesize(criteriaWeights, localPriorities);
 
-      const voterWeightVectors = Object.values(individualPriorities);
-      const W = voterWeightVectors.length > 1 ? kendallW(voterWeightVectors) : 1.0;
+      // IMPORTANT: votingCollabs and criteriaVectors must be derived from the same
+      // filter in the same order. criteriaVectors[idx] maps to votingCollabs[idx].
+      const votingCollabs = allCriteriaComparisons
+        .filter((c) => votingMembers.find((m) => m.userId === c.userId && m.isVoting));
 
-      const criteriaVectors = allCriteriaComparisons
-        .filter((c) => votingMembers.find((m) => m.userId === c.userId && m.isVoting))
+      const criteriaVectors = votingCollabs
         .map((c) => {
           if (completionTier === 4) {
             const matrix = buildMatrix(n, c.comparisons);
@@ -286,6 +287,58 @@ export function useAHP(userId: string): UseAHPReturn {
           const { weights } = llsmWeights(n, c.comparisons);
           return weights;
         });
+
+      // Populate per-voter factor weights
+      votingCollabs.forEach((c, idx) => {
+        individualPriorities[c.userId] = criteriaVectors[idx]!;
+      });
+
+      // Compute per-voter alternative rankings and global scores
+      const individualAlternativeScores: Record<string, number[]> = {};
+      const individualLocalPriorities: Record<string, number[][]> = {};
+      const individualIncompleteCriteria: Record<string, string[]> = {};
+
+      for (const collab of votingCollabs) {
+        const voterLocalPriorities: number[][] = Array.from(
+          { length: numAlts }, () => new Array<number>(n).fill(0),
+        );
+        const incompleteCriteria: string[] = [];
+
+        for (let k = 0; k < state.structure.criteria.length; k++) {
+          const criterion = state.structure.criteria[k]!;
+          const voterAltComps = allAlternativeComparisons[criterion.id]
+            ?.find((c) => c.userId === collab.userId)?.comparisons ?? {};
+
+          let voterAltWeights: number[];
+          if (Object.keys(voterAltComps).length === 0) {
+            // No comparisons for this criterion — use uniform weights (mathematically neutral)
+            voterAltWeights = new Array<number>(numAlts).fill(1 / numAlts);
+            incompleteCriteria.push(criterion.id);
+          } else if (completionTier === 4) {
+            const m = buildMatrix(numAlts, voterAltComps);
+            voterAltWeights = principalEigenvector(m);
+          } else {
+            const { weights: w } = llsmWeights(numAlts, voterAltComps);
+            voterAltWeights = w;
+          }
+
+          for (let a = 0; a < numAlts; a++) {
+            voterLocalPriorities[a]![k] = voterAltWeights[a]!;
+          }
+        }
+
+        individualLocalPriorities[collab.userId] = voterLocalPriorities;
+        if (incompleteCriteria.length > 0) {
+          individualIncompleteCriteria[collab.userId] = incompleteCriteria;
+        }
+        const voterWeights = individualPriorities[collab.userId];
+        if (voterWeights) {
+          individualAlternativeScores[collab.userId] = synthesize(voterWeights, voterLocalPriorities);
+        }
+      }
+
+      const voterWeightVectors = Object.values(individualPriorities);
+      const W = voterWeightVectors.length > 1 ? kendallW(voterWeightVectors) : 1.0;
 
       const thresholds = state.model.disagreementConfig?.thresholds ?? { agreement: 0.15, mild: 0.35 };
       const disagreement = computeDisagreement(criteriaVectors, thresholds);
@@ -349,6 +402,9 @@ export function useAHP(userId: string): UseAHPReturn {
       const individual: SynthesisBundle['individual'] = {
         individualPriorities,
         individualCR,
+        individualAlternativeScores,
+        individualLocalPriorities,
+        individualIncompleteCriteria,
       };
 
       const diagnostics: SynthesisBundle['diagnostics'] = {
@@ -435,16 +491,25 @@ export function useAHP(userId: string): UseAHPReturn {
         | { synthesisId: string; summary: SynthesisBundle['summary']; individual: SynthesisBundle['individual']; diagnostics: SynthesisBundle['diagnostics'] }
         | null;
       if (synthesis && synthesis.synthesisId === meta.publishedSynthesisId) {
-        // Deserialize localPriorities if stored as JSON string (Firestore nested-array workaround)
+        // Deserialize nested arrays stored as JSON strings (Firestore workaround)
         const summary = { ...synthesis.summary };
         if (typeof summary.localPriorities === 'string') {
           summary.localPriorities = JSON.parse(summary.localPriorities as string) as number[][];
         }
+        const individual = {
+          individualPriorities: synthesis.individual?.individualPriorities ?? {},
+          individualCR: synthesis.individual?.individualCR ?? {},
+          individualAlternativeScores: synthesis.individual?.individualAlternativeScores ?? {},
+          individualLocalPriorities: typeof synthesis.individual?.individualLocalPriorities === 'string'
+            ? JSON.parse(synthesis.individual.individualLocalPriorities as unknown as string) as Record<string, number[][]>
+            : synthesis.individual?.individualLocalPriorities ?? {},
+          individualIncompleteCriteria: synthesis.individual?.individualIncompleteCriteria ?? {},
+        };
         dispatch({
           type: 'SET_SYNTHESIS',
           payload: {
             summary,
-            individual: synthesis.individual,
+            individual,
             diagnostics: synthesis.diagnostics,
           },
         });
