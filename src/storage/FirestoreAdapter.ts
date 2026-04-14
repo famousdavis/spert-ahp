@@ -404,8 +404,16 @@ export class FirestoreAdapter implements StorageAdapter {
       diagnostics: docs.diagnostics ?? (existing?.diagnostics as SynthesisBundle['diagnostics']),
     };
 
+    // Firestore does not support nested arrays. Serialize localPriorities (number[][])
+    // as a JSON string before writing, and deserialize on read in getSynthesis.
+    const toWrite = JSON.parse(JSON.stringify(merged)) as Record<string, unknown>;
+    if (merged.summary?.localPriorities) {
+      (toWrite['summary'] as Record<string, unknown>)['localPriorities'] =
+        JSON.stringify(merged.summary.localPriorities);
+    }
+
     await updateDoc(docRef(modelId), {
-      synthesis: merged,
+      synthesis: toWrite,
       updatedAt: Date.now(),
     });
   }
@@ -415,8 +423,13 @@ export class FirestoreAdapter implements StorageAdapter {
     if (!snap.exists()) return null;
     const d = snap.data() as FirestoreModelDoc;
     if (!d.synthesis || d.synthesis.synthesisId !== synthesisId) return null;
+    const summary = { ...d.synthesis.summary };
+    // Deserialize localPriorities if it was stored as a JSON string
+    if (typeof summary.localPriorities === 'string') {
+      summary.localPriorities = JSON.parse(summary.localPriorities as string) as number[][];
+    }
     return {
-      summary: d.synthesis.summary,
+      summary,
       individual: d.synthesis.individual,
       diagnostics: d.synthesis.diagnostics,
     };

@@ -435,10 +435,15 @@ export function useAHP(userId: string): UseAHPReturn {
         | { synthesisId: string; summary: SynthesisBundle['summary']; individual: SynthesisBundle['individual']; diagnostics: SynthesisBundle['diagnostics'] }
         | null;
       if (synthesis && synthesis.synthesisId === meta.publishedSynthesisId) {
+        // Deserialize localPriorities if stored as JSON string (Firestore nested-array workaround)
+        const summary = { ...synthesis.summary };
+        if (typeof summary.localPriorities === 'string') {
+          summary.localPriorities = JSON.parse(summary.localPriorities as string) as number[][];
+        }
         dispatch({
           type: 'SET_SYNTHESIS',
           payload: {
-            summary: synthesis.summary,
+            summary,
             individual: synthesis.individual,
             diagnostics: synthesis.diagnostics,
           },

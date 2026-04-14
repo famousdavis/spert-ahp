@@ -1,5 +1,10 @@
 # SPERT® AHP — Changelog
 
+## v0.4.1 (April 13, 2026)
+
+### Fixed
+- Fixed "Nested arrays are not supported" error when running synthesis in cloud mode — `localPriorities` (a 2D array) is now serialized as JSON before writing to Firestore and deserialized on read
+
 ## v0.4.0 (April 13, 2026)
 
 ### Language

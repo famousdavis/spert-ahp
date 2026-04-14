@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.4.1',
+    date: '2026-04-13',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Fixed "Nested arrays are not supported" error when running synthesis in cloud mode',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-04-13',
     sections: [
