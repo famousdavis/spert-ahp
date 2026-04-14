@@ -3,13 +3,18 @@
 /* Enable dark mode via class strategy */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Custom comparison slider — transparent track with colored overlay divs */
+/* Comparison slider wrapper — provides --bar-inactive to bars and slider */
+.comparison-slider-wrap {
+  --bar-inactive: #d1d5db;
+}
+
+/* Custom comparison slider — transparent track with intensity bar overlay */
 .comparison-slider {
   -webkit-appearance: none;
   appearance: none;
   height: 6px;
   border-radius: 3px;
-  background: #e5e7eb;
+  background: transparent;
   outline: none;
   cursor: pointer;
 }
@@ -46,13 +51,13 @@
 .comparison-slider::-moz-range-track {
   height: 6px;
   border-radius: 3px;
-  background: #e5e7eb;
+  background: transparent;
 }
 
-/* Dark mode slider track */
-.dark .comparison-slider {
-  background: #374151;
+/* Dark mode */
+.dark .comparison-slider-wrap {
+  --bar-inactive: #4b5563;
 }
 .dark .comparison-slider::-moz-range-track {
-  background: #374151;
+  background: transparent;
 }

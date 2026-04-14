@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, deleteField } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStorage } from '../../contexts/StorageContext';
 import type { UseAHPReturn, CollaboratorDoc, CollaboratorRole } from '../../types/ahp';
+
+interface ProfileInfo {
+  displayName: string;
+  email: string;
+}
 
 interface SharingSectionProps {
   ahpState: UseAHPReturn;
@@ -27,11 +32,50 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
   const [role, setRole] = useState<CollaboratorRole>('editor');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [profileMap, setProfileMap] = useState<Record<string, ProfileInfo>>({});
 
   // Only render for cloud-mode owners
   useEffect(() => {
     setCollabs(ahpState.collaborators);
   }, [ahpState.collaborators]);
+
+  // Fetch display profiles for all collaborators
+  useEffect(() => {
+    if (!db || collabs.length === 0) return;
+    let cancelled = false;
+
+    async function fetchProfiles() {
+      const map: Record<string, ProfileInfo> = {};
+      await Promise.all(
+        collabs.map(async (c) => {
+          // Use auth context for the current user to avoid an extra read
+          if (user && c.userId === user.uid) {
+            map[c.userId] = {
+              displayName: user.displayName ?? '',
+              email: user.email ?? '',
+            };
+            return;
+          }
+          try {
+            const snap = await getDoc(doc(db!, 'spertahp_profiles', c.userId));
+            if (snap.exists()) {
+              const data = snap.data() as { displayName?: string; email?: string };
+              map[c.userId] = {
+                displayName: data.displayName ?? '',
+                email: data.email ?? '',
+              };
+            }
+          } catch {
+            // Profile fetch failed — will fall back to truncated UID
+          }
+        }),
+      );
+      if (!cancelled) setProfileMap(map);
+    }
+
+    void fetchProfiles();
+    return () => { cancelled = true; };
+  }, [collabs, user]);
 
   if (mode !== 'cloud' || !user || !ahpState.modelId) return null;
   const currentRole = ahpState.collaborators.find((c) => c.userId === user.uid)?.role;
@@ -157,8 +201,16 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
           const isSelf = c.userId === user.uid;
           return (
             <li key={c.userId} className="flex items-center justify-between px-3 py-2 gap-2">
-              <div className="text-xs text-gray-900 dark:text-gray-100 flex-1 truncate">
-                {c.userId.slice(0, 8)}… {isSelf && <span className="text-gray-400">(you)</span>}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-gray-900 dark:text-gray-100 truncate">
+                  {profileMap[c.userId]?.displayName || `${c.userId.slice(0, 8)}…`}
+                  {isSelf && <span className="ml-1 text-gray-400">(you)</span>}
+                </div>
+                {profileMap[c.userId]?.email && (
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                    {profileMap[c.userId]!.email}
+                  </div>
+                )}
               </div>
               {c.role === 'owner' ? (
                 <span className="text-xs text-gray-500 dark:text-gray-400">Owner</span>

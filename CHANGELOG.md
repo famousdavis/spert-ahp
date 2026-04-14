@@ -1,5 +1,21 @@
 # SPERT® AHP — Changelog
 
+## v0.3.0 (April 13, 2026)
+
+### Sharing
+- Collaborator list now displays user names and emails instead of truncated Firebase UIDs — profiles are fetched from Firestore on render with graceful fallback
+
+### UX
+- Redesigned comparison slider with intensity bars — 17 vertical bars grow taller toward the edges to communicate preference strength, color fills outward from center (blue left, amber right)
+- Fixed slider direction — dragging toward an item now means you prefer that item (previously inverted)
+- Slider thumb repositioned below the intensity bars for clearer visual separation
+- Fixed bug where editing existing criteria or alternative names would swallow keystrokes — inputs now use local state with blur-to-save
+- Long item labels now wrap instead of truncating with ellipsis in both comparison sliders and Current Weights charts
+- Current Weights bar chart enforces a minimum bar width so small percentages remain visible
+
+### Maintenance
+- Removed stale compiled `.js`/`.js.map` artifacts from `src/` that were shadowing `.tsx` sources and causing Vite to serve outdated code
+
 ## v0.2.4 (April 9, 2026)
 
 ### Documentation
