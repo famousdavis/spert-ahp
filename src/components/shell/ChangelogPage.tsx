@@ -11,7 +11,7 @@ export default function ChangelogPage() {
     <div className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-2xl font-bold dark:text-gray-100">Changelog</h1>
       <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-        Current version: 0.1.1
+        Current version: {CHANGELOG[0]?.version ?? 'unknown'}
       </p>
 
       <div className="mt-8 space-y-10">

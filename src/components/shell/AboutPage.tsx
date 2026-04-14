@@ -1,3 +1,5 @@
+import { CHANGELOG } from './changelogData';
+
 const R = () => <sup className="text-[0.45em] text-gray-400 font-normal tracking-wide align-super">&reg;</sup>;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -95,7 +97,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
             onClick={() => onNavigate?.('Changelog')}
             className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
           >
-            v0.2.4
+            v{CHANGELOG[0]?.version ?? '0.0.0'}
           </button>
         </p>
       </Section>
