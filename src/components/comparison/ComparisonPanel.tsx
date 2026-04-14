@@ -80,7 +80,7 @@ function AlternativeLayer({ criterionId, criterionLabel, alternativeItems, tier,
           <div className="space-y-1">
             {alternativeItems.map((item, i) => (
               <div key={item.id} className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400 min-w-32 shrink-0">{item.label}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400 w-48 shrink-0">{item.label}</span>
                 <div className="flex-1 min-w-20 bg-gray-200 dark:bg-gray-700 rounded-full h-4">
                   <div
                     className="bg-blue-500 h-4 rounded-full transition-all"
@@ -218,7 +218,7 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
               <div className="space-y-1">
                 {criteriaItems.map((item, i) => (
                   <div key={item.id} className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 min-w-32 shrink-0">{item.label}</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400 w-48 shrink-0">{item.label}</span>
                     <div className="flex-1 min-w-20 bg-gray-200 dark:bg-gray-700 rounded-full h-4">
                       <div
                         className="bg-blue-500 h-4 rounded-full transition-all"
