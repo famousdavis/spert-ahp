@@ -74,7 +74,7 @@ export default function ResultsPanel({ ahpState }: ResultsPanelProps) {
       <PriorityChart
         items={structure?.criteria ?? []}
         scores={synthesis.summary.aggregatedWeights}
-        title="Criteria Weights"
+        title="Objective Weights"
       />
 
       <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">

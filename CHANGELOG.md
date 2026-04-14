@@ -13,8 +13,17 @@
 - Long item labels now wrap instead of truncating with ellipsis in both comparison sliders and Current Weights charts
 - Current Weights bar chart enforces a minimum bar width so small percentages remain visible
 
+### Comparison Matrix
+- Comparison matrix table is now hidden for non-owner collaborators
+- For owners, the matrix is collapsed behind a "Show comparison matrix" toggle (default closed)
+
+### Language
+- Renamed "Criteria weights" tab to "Objectives" for more accessible language
+- Renamed "Criteria Weights" chart in Results to "Objective Weights"
+
 ### Maintenance
 - Removed stale compiled `.js`/`.js.map` artifacts from `src/` that were shadowing `.tsx` sources and causing Vite to serve outdated code
+- Version display in Changelog and About pages now derived dynamically from changelog data
 
 ## v0.2.4 (April 9, 2026)
 

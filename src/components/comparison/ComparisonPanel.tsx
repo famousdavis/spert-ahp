@@ -13,9 +13,10 @@ interface AlternativeLayerProps {
   tier: CompletionTier;
   ahpState: UseAHPReturn;
   userId: string;
+  isOwner: boolean;
 }
 
-function AlternativeLayer({ criterionId, criterionLabel, alternativeItems, tier, ahpState, userId }: AlternativeLayerProps) {
+function AlternativeLayer({ criterionId, criterionLabel, alternativeItems, tier, ahpState, userId, isOwner }: AlternativeLayerProps) {
   const n = alternativeItems.length;
   const initialComp = ahpState.responses?.[userId]?.alternativeMatrices?.[criterionId] ?? {};
 
@@ -51,11 +52,20 @@ function AlternativeLayer({ criterionId, criterionLabel, alternativeItems, tier,
         </div>
       )}
 
-      <ComparisonMatrix
-        items={alternativeItems}
-        comparisons={matrix.comparisons}
-        onCellClick={() => {}}
-      />
+      {isOwner && (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+            Show comparison matrix
+          </summary>
+          <div className="mt-2">
+            <ComparisonMatrix
+              items={alternativeItems}
+              comparisons={matrix.comparisons}
+              onCellClick={() => {}}
+            />
+          </div>
+        </details>
+      )}
 
       <div className="space-y-3">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -136,6 +146,9 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
     return <p className="text-gray-500 dark:text-gray-400">Add at least 2 criteria and 2 alternatives in Setup.</p>;
   }
 
+  const currentRole = ahpState.collaborators.find((c) => c.userId === userId)?.role;
+  const isOwner = ahpState.collaborators.length === 0 || currentRole === 'owner';
+
   const isCriteriaLayer = activeLayer === 'criteria';
   const activeCriterion = !isCriteriaLayer
     ? criteriaItems.find((c) => c.id === activeLayer)
@@ -156,7 +169,7 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
           }`}
         >
-          Criteria weights
+          Objectives
         </button>
         {criteriaItems.map((crit) => (
           <button
@@ -191,11 +204,20 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
             </div>
           )}
 
-          <ComparisonMatrix
-            items={criteriaItems}
-            comparisons={criteriaMatrix.comparisons}
-            onCellClick={() => {}}
-          />
+          {isOwner && (
+            <details className="text-sm">
+              <summary className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                Show comparison matrix
+              </summary>
+              <div className="mt-2">
+                <ComparisonMatrix
+                  items={criteriaItems}
+                  comparisons={criteriaMatrix.comparisons}
+                  onCellClick={() => {}}
+                />
+              </div>
+            </details>
+          )}
 
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -245,6 +267,7 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
           tier={tier}
           ahpState={ahpState}
           userId={userId}
+          isOwner={isOwner}
         />
       )}
     </div>

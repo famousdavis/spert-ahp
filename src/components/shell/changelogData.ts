@@ -29,6 +29,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Current Weights bar chart enforces a minimum bar width so small percentages remain visible',
         ],
       },
+      {
+        title: 'Comparison Matrix',
+        items: [
+          'Comparison matrix table hidden for non-owner collaborators',
+          'For owners, matrix collapsed behind a toggle (default closed)',
+        ],
+      },
+      {
+        title: 'Language',
+        items: [
+          'Renamed "Criteria weights" tab to "Objectives" for more accessible language',
+          'Renamed "Criteria Weights" chart in Results to "Objective Weights"',
+        ],
+      },
     ],
   },
   {
