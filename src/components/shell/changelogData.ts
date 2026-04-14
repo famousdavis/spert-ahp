@@ -9,6 +9,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.3.0',
+    date: '2026-04-13',
+    sections: [
+      {
+        title: 'Sharing',
+        items: [
+          'Collaborator list now displays user names and emails instead of truncated Firebase UIDs',
+        ],
+      },
+      {
+        title: 'UX',
+        items: [
+          'Redesigned comparison slider with intensity bars \u2014 vertical bars grow taller toward the edges, color fills outward from center (blue left, amber right)',
+          'Fixed slider direction \u2014 dragging toward an item now means you prefer that item',
+          'Slider thumb repositioned below the intensity bars for clearer visual separation',
+          'Fixed bug where editing existing criteria or alternative names would swallow keystrokes',
+          'Long item labels now wrap instead of truncating with ellipsis',
+          'Current Weights bar chart enforces a minimum bar width so small percentages remain visible',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.2.4',
     date: '2026-04-09',
     sections: [
