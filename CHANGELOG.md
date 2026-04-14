@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.4.0 (April 13, 2026)
+
+### Language
+- Renamed "criteria" / "criterion" to "decision factors" / "factor" across all UI surfaces — more accessible for non-AHP-specialists while avoiding the goal/objective collision identified in terminology review
+- "Decision Factors" used in headers and tab labels; "factors" in tight spaces like placeholders and chart labels
+- About page retains "criteria" for AHP methodology accuracy
+
 ## v0.3.0 (April 13, 2026)
 
 ### Sharing

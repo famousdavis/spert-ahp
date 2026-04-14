@@ -145,7 +145,7 @@ export default function ModelSetup({ ahpState, userId: _userId }: ModelSetupProp
       <ItemBuilder
         items={ahpState.structure?.criteria ?? []}
         onChange={(items) => handleStructureChange('criteria', items)}
-        itemLabel="Criterion"
+        itemLabel="Decision Factor"
         hasComparisons={hasComparisons}
       />
 

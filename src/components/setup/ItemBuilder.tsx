@@ -128,7 +128,7 @@ export default function ItemBuilder({ items, onChange, itemLabel, hasComparisons
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {itemLabel === 'Criterion' ? 'Criteria' : `${itemLabel}s`} ({items.length})
+        {`${itemLabel}s`} ({items.length})
       </label>
 
       <DndContext

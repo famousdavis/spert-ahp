@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.4.0',
+    date: '2026-04-13',
+    sections: [
+      {
+        title: 'Language',
+        items: [
+          'Renamed "criteria" to "decision factors" across all UI surfaces \u2014 more accessible terminology that avoids goal/objective collision',
+          '"Decision Factors" in headers and tabs; "factors" in placeholders and chart labels',
+          'About page retains "criteria" for AHP methodology accuracy',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-04-13',
     sections: [

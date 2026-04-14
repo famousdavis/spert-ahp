@@ -143,7 +143,7 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
   }
 
   if (!hasSufficientStructure) {
-    return <p className="text-gray-500 dark:text-gray-400">Add at least 2 criteria and 2 alternatives in Setup.</p>;
+    return <p className="text-gray-500 dark:text-gray-400">Add at least 2 decision factors and 2 alternatives in Setup.</p>;
   }
 
   const currentRole = ahpState.collaborators.find((c) => c.userId === userId)?.role;
@@ -169,7 +169,7 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
           }`}
         >
-          Objectives
+          Decision Factors
         </button>
         {criteriaItems.map((crit) => (
           <button
