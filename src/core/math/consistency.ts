@@ -143,6 +143,12 @@ export function suggestRepair(n: number, comparisons: ComparisonMap, tier: Compl
  *
  * Only observed judgments are considered — for tier 2/3, Harker-filled slots are not
  * user opinions and must not be ranked or surfaced.
+ *
+ * impliedValue is clamped to the Saaty scale [1/9, 9] because the user cannot enter
+ * anything outside that range — buildMatrix also clamps internally, so crIfChanged
+ * and crDelta reflect the improvement achievable at the Saaty bound. Surfacing the
+ * raw (unclamped) w[i]/w[j] ratio would suggest an unreachable target and the ghost
+ * marker would render off the slider track.
  */
 export function rankJudgments(
   n: number,
@@ -159,10 +165,13 @@ export function rankJudgments(
   const w = principalEigenvector(matrix);
 
   const ranked: RankedJudgment[] = [];
+  const SAATY_MIN = 1 / 9;
+  const SAATY_MAX = 9;
 
   for (const [key, currentValue] of Object.entries(comparisons)) {
     const [i, j] = key.split(',').map(Number) as [number, number];
-    const impliedValue = w[i]! / w[j]!;
+    const rawImplied = w[i]! / w[j]!;
+    const impliedValue = Math.max(SAATY_MIN, Math.min(SAATY_MAX, rawImplied));
 
     const modified = { ...comparisons, [key]: impliedValue };
     const newCR = consistencyRatio(n, modified, tier);

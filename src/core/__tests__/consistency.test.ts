@@ -148,13 +148,32 @@ describe('rankJudgments', () => {
     }
   });
 
-  it('impliedValue equals w[i]/w[j] from the eigenvector', () => {
+  it('impliedValue is positive and finite for every entry', () => {
     const comp = { '0,1': 9, '0,2': 1, '1,2': 9 };
     const ranked = rankJudgments(3, comp, 4);
-    // impliedValue should be positive and finite for every entry
     for (const r of ranked) {
       expect(r.impliedValue).toBeGreaterThan(0);
       expect(Number.isFinite(r.impliedValue)).toBe(true);
+    }
+  });
+
+  it('impliedValue is always clamped to the Saaty scale [1/9, 9]', () => {
+    // Severely inconsistent matrices can produce unclamped eigenvector ratios
+    // well outside [1/9, 9]. The advisor must never suggest out-of-scale targets.
+    const comp = { '0,1': 9, '0,2': 1, '1,2': 9 };
+    const ranked = rankJudgments(3, comp, 4);
+    expect(ranked.length).toBeGreaterThan(0);
+    for (const r of ranked) {
+      expect(r.impliedValue).toBeGreaterThanOrEqual(1 / 9 - 1e-12);
+      expect(r.impliedValue).toBeLessThanOrEqual(9 + 1e-12);
+    }
+
+    // Also verify on a 4x4 that forces a large eigenvector ratio
+    const comp4 = { '0,1': 9, '0,2': 9, '0,3': 1, '1,2': 9, '1,3': 9, '2,3': 9 };
+    const ranked4 = rankJudgments(4, comp4, 4);
+    for (const r of ranked4) {
+      expect(r.impliedValue).toBeGreaterThanOrEqual(1 / 9 - 1e-12);
+      expect(r.impliedValue).toBeLessThanOrEqual(9 + 1e-12);
     }
   });
 });

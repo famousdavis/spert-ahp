@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.2',
+    date: '2026-04-18',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Consistency Advisor no longer suggests targets outside the Saaty scale. The eigenvector-implied ratio is now clamped to [1/9, 9] before being displayed or used for the ghost slider marker, so the advisor always points to a value the user can actually set',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.6.1',
     date: '2026-04-18',
     sections: [

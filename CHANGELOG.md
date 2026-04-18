@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.6.2 (April 18, 2026)
+
+### Fixed
+- Consistency Advisor no longer suggests targets outside the Saaty scale. The raw eigenvector-implied ratio `w[i] / w[j]` is unbounded and could produce values like `1/15x` or `12x` on severely inconsistent matrices — the advisor would render these in the spotlight and the ghost slider marker would render off the track. `rankJudgments` now clamps `impliedValue` to `[1/9, 9]` before returning, so the advisor always points to a Saaty-valid target the user can physically set
+- CR-improvement math is unaffected: `buildMatrix` clamps to the same range internally, so `crDelta` already reflected the improvement achievable at the Saaty bound. Only the displayed target and ghost position are affected
+- New test: `rankJudgments` invariant that `impliedValue` always lands in `[1/9, 9]`
+
 ## v0.6.1 (April 18, 2026)
 
 ### Consistency Advisor Polish
