@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.3',
+    date: '2026-04-18',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          '"CR" acronym spelled out as "Consistency Ratio" in user-facing surfaces where new users first encounter the term. Affected spots: the consistency badge fallback tooltip, the advisor heading and partial-comparison caveat and per-row "Expected ... drop" label, the tier selector subheadings, and the synthesis confidence badge "Avg" row. Compact "CR" retained in space-constrained displays where the term has already been established nearby — the badge pill itself, the per-voter row in the results breakdown, and the advisor progress-bar caption',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.7.2',
     date: '2026-04-18',
     sections: [

@@ -46,9 +46,9 @@ export function consistencyRatio(n: number, comparisons: ComparisonMap, tier: Co
   const cr = ri > 0 ? ci / ri : 0;
 
   const confidenceLabels: Record<number, string> = {
-    2: 'CR estimate — based on partial comparisons',
-    3: 'CR estimate — based on partial comparisons',
-    4: 'Full confidence CR',
+    2: 'Consistency Ratio estimate — based on partial comparisons',
+    3: 'Consistency Ratio estimate — based on partial comparisons',
+    4: 'Full confidence Consistency Ratio',
   };
 
   return {

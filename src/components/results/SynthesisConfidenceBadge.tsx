@@ -26,7 +26,7 @@ export default function SynthesisConfidenceBadge({ confidence }: SynthesisConfid
             <span>Voters:</span><span>{signals.voterCount}</span>
           </div>
           <div className="flex justify-between">
-            <span>Avg CR:</span><span>{(signals.avgCR * 100).toFixed(1)}%</span>
+            <span>Avg Consistency Ratio:</span><span>{(signals.avgCR * 100).toFixed(1)}%</span>
           </div>
           <div className="flex justify-between">
             <span>Kendall W:</span><span>{signals.kendallW.toFixed(3)}</span>

@@ -1,5 +1,10 @@
 # SPERT® AHP — Changelog
 
+## v0.7.3 (April 18, 2026)
+
+### Changed
+- **"CR" acronym spelled out as "Consistency Ratio" in user-facing surfaces where the term is introduced or where space permits.** New users had no in-context way to know what "CR" stands for — it appeared bare on the consistency badge tooltip, advisor heading and body copy, tier selector, and the synthesis confidence badge. Affected strings: `ConsistencyBadge` fallback tooltip (tier/no-value case), `ConsistencyAdvisor` heading + partial-comparison caveat + per-row "Expected … drop" label, `TierSelector` tier-card subheadings, `SynthesisConfidenceBadge` "Avg …" row, and the two `confidenceLabel` constants produced by `consistencyRatio`. Compact "CR" retained in space-constrained displays where the term has already been established nearby: the badge pill itself, the per-voter row in `VoterBreakdownCard`, and the advisor progress-bar caption
+
 ## v0.7.2 (April 18, 2026)
 
 ### Security
