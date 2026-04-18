@@ -229,6 +229,15 @@ export interface SynthesisDiagnostics {
   pairwiseAgreement: Record<string, number>;
 }
 
+/**
+ * A published synthesis is a point-in-time snapshot. The voter set captured
+ * in summary.votersIncluded and keyed into individual.individualPriorities /
+ * individualAlternativeScores / individualCR / individualLocalPriorities /
+ * individualIncompleteCriteria reflects collaborators as they were at
+ * synthesis time. Removing a collaborator afterward does NOT retroactively
+ * redact them from the stored bundle — their UID and computed priorities
+ * remain visible until synthesis is re-run.
+ */
 export interface SynthesisBundle {
   summary: SynthesisSummary;
   individual: SynthesisIndividual;

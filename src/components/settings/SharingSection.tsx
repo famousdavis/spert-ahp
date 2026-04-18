@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, deleteField } from 'firebase/firestore';
+import { collection, query, where, limit, getDocs, doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStorage } from '../../contexts/StorageContext';
@@ -12,7 +12,14 @@ interface SharingSectionProps {
 
 async function lookupUidByEmail(email: string): Promise<{ uid: string; displayName?: string } | null> {
   if (!db) return null;
-  const q = query(collection(db, 'spertahp_profiles'), where('email', '==', email.trim().toLowerCase()));
+  // limit(1) is required by the spertahp_profiles list rule (v0.7.2) to
+  // block bulk profile enumeration while preserving this email-to-uid
+  // lookup. Email equality is unique in practice, so a hit is deterministic.
+  const q = query(
+    collection(db, 'spertahp_profiles'),
+    where('email', '==', email.trim().toLowerCase()),
+    limit(1),
+  );
   const snap = await getDocs(q);
   if (snap.empty) return null;
   const first = snap.docs[0]!;

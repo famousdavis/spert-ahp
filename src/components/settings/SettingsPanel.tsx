@@ -119,24 +119,26 @@ export default function SettingsPanel({ ahpState }: SettingsPanelProps) {
         onUpdate={(partial) => { void ahpState.updateModel(partial); }}
       />
 
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Data</h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Export this decision as a JSON file for backup or to move it to another device.
-        </p>
-        <button
-          onClick={() => { void handleExport(); }}
-          disabled={isExporting}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-        >
-          {isExporting ? 'Exporting…' : 'Export as JSON'}
-        </button>
-        {exportError && (
-          <div className="text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md p-2">
-            {exportError}
-          </div>
-        )}
-      </div>
+      {(mode !== 'cloud' || isOwner) && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Data</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Export this decision as a JSON file for backup or to move it to another device.
+          </p>
+          <button
+            onClick={() => { void handleExport(); }}
+            disabled={isExporting}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+          >
+            {isExporting ? 'Exporting…' : 'Export as JSON'}
+          </button>
+          {exportError && (
+            <div className="text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md p-2">
+              {exportError}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="border border-red-200 dark:border-red-800 rounded-lg p-4">
         <h3 className="text-sm font-medium text-red-700 dark:text-red-400 mb-3">Danger Zone</h3>

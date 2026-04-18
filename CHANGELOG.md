@@ -1,5 +1,26 @@
 # SPERT® AHP — Changelog
 
+## v0.7.2 (April 18, 2026)
+
+### Security
+First security audit pass on the codebase. Six findings fixed; four deferred with explicit justification.
+
+- **Firestore rules — editors can no longer write owner-governed fields.** The deployed `spertahp_projects` update rule previously guarded only `owner` and `members` against non-owner writes, leaving `resultsVisibility`, `synthesis`, `publishedSynthesisId`, and `collaborators` writable by any editor. The UI gated these to owners, but a determined editor could bypass via direct adapter or Firestore SDK calls — flipping `showAggregatedToVoters` to see other voters' data, republishing synthesis, or changing anyone's `isVoting` flag. Tightened the rule to forbid editor writes to all four keys (audit finding 3.3)
+- **Firestore rules — profile enumeration blocked.** The deployed `spertahp_profiles` rule granted read access to any authenticated Firebase user (shared auth tenant across the SPERT suite), permitting bulk listing of every SPERT AHP user's displayName + email. Replaced `allow read` with `allow get` + a `list` rule constrained to `request.query.limit <= 1`. The share-by-email flow in SharingSection still works because its query is now `limit(1)`-constrained. Does not stop one-email-at-a-time probing — deliberate tradeoff for share-by-email UX without a Cloud Function (audit finding 3.6, Option B)
+- **Export is now owner-only in cloud mode.** Previously any collaborator with project access (including viewers) could click "Export as JSON" and receive a file containing every voter's raw comparison matrices and all collaborator UIDs — bypassing the owner's `showAggregatedToVoters = false` privacy control. Added `mode !== 'cloud' || isOwner` gate on the Export UI in `SettingsPanel`. Local mode is unaffected (local user is always sole owner) (audit finding 8.2)
+- **Import now whitelist-copies fields.** `importModel` previously spread `envelope.meta`, `envelope.structure`, `envelope.collaborators[]` items, and the original owner's response through to storage, which in local mode meant unknown/rogue fields on the uploaded JSON survived round-trips via `setJSON` → `getJSON`. Cloud mode was already safe because `FirestoreAdapter.createModelFromBundle` picks whitelisted fields explicitly. Defense-in-depth: every imported object now goes through explicit per-field pickers (`pickString`, `pickNumber`, `pickStatus`, `pickCompletionTier`, `pickDisagreementConfig`, `pickResultsVisibility`, `pickChangeLog`, `pickStructuredItem`, `pickStructure`, `pickComparisonMap`, `pickAlternativeMatrices`, `pickResponse`) (audit finding 1.3)
+- **Import now enforces a 2 MB size cap.** `importModel` rejects raw JSON input over 2 MB before `JSON.parse`, and the test harness covers the error path. A legitimate AHP export at Complete tier with 50 voters is under 500 KB; 2 MB is generous headroom for authentic use while stopping malformed or malicious huge payloads that would hang the main thread (audit finding 1.4)
+- **Checked-in firestore.rules now mirrors the deployed suite ruleset.** Previous repo file declared only the AHP-specific block; the canonical deployed rules cover all SPERT apps plus `/users/{uid}` for ToS records (which uses a `hasOnly()` whitelist of allowed fields — no consent-record forgery possible). Full suite rules now in the repo for diff-against-console verification (audit finding 7.1)
+
+### Docs
+- `SynthesisBundle` type comment documents the point-in-time-snapshot semantics: removing a collaborator after synthesis does NOT retroactively redact them from the stored bundle until synthesis is re-run. Expected behavior worth documenting so consumers don't assume retroactive redaction
+
+### Audit items deferred with justification
+- **7.2** (consent-bypass via localStorage) — cosmetic only. The Firestore consent record at `users/{uid}` is the authoritative artifact and is protected by a uid-matched `hasOnly()` whitelist
+- **3.7** (spertahp_settings lacks `hasOnly()`) — path is currently unused by the AHP app. Will add hasOnly when AHP starts persisting settings to Firestore
+- **v0.7.1 flagged bug** (state.responses lingering after collaborator removal) — re-assessed in this audit as correctness debt, not a security exposure. No render path surfaces other-user responses from state; exports read fresh from storage
+- **Synthesis snapshot retention** — documented in the SynthesisBundle type comment per above; no code change
+
 ## v0.7.1 (April 18, 2026)
 
 ### Fixed
