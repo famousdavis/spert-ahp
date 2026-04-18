@@ -29,7 +29,7 @@ export default function TierSelector({ value, onChange, disabled }: TierSelector
           >
             <div className="font-medium">{config.label}</div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              CR confidence: {config.crConfidence}
+              Consistency Ratio confidence: {config.crConfidence}
             </div>
           </button>
         ))}

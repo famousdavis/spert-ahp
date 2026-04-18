@@ -68,11 +68,11 @@ export default function ConsistencyAdvisor({
     <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-900/20 p-4 space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-          Consistency advisor — {spotlightCount} judgment{spotlightCount === 1 ? '' : 's'} may be driving your high CR
+          Consistency advisor — {spotlightCount} judgment{spotlightCount === 1 ? '' : 's'} may be driving your high Consistency Ratio
         </h3>
         {isEstimate && (
           <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-            You haven&apos;t answered all comparisons, so this CR is an estimate. Completing more comparisons will improve accuracy.
+            You haven&apos;t answered all comparisons, so this Consistency Ratio is an estimate. Completing more comparisons will improve accuracy.
           </p>
         )}
       </div>
@@ -102,7 +102,7 @@ export default function ConsistencyAdvisor({
                     <span className="text-gray-400 dark:text-gray-600"> ({formatRatio(r.impliedValue)})</span>
                   </div>
                   <div className="text-xs text-amber-700 dark:text-amber-400">
-                    Expected CR drop if reconsidered: {(r.crDelta * 100).toFixed(1)}%
+                    Expected Consistency Ratio drop if reconsidered: {(r.crDelta * 100).toFixed(1)}%
                   </div>
                 </div>
                 <button

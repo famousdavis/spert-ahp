@@ -67,7 +67,7 @@ describe('consistencyRatio', () => {
   it('tier=4 label has no "Harker" string', () => {
     const comp = { '0,1': 2, '0,2': 4, '1,2': 2 };
     const result = consistencyRatio(3, comp, 4);
-    expect(result.confidenceLabel).toBe('Full confidence CR');
+    expect(result.confidenceLabel).toBe('Full confidence Consistency Ratio');
   });
 });
 

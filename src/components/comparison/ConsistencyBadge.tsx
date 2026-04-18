@@ -9,7 +9,7 @@ export default function ConsistencyBadge({ cr, tier }: ConsistencyBadgeProps) {
   if (!cr || cr.cr === null) {
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-        {cr?.confidenceLabel ?? `Tier ${tier} — CR not available`}
+        {cr?.confidenceLabel ?? `Tier ${tier} — Consistency Ratio not available`}
       </span>
     );
   }
