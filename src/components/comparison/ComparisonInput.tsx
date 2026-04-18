@@ -10,6 +10,10 @@ interface ComparisonInputProps {
   criterionLabel?: string;
   isFocused?: boolean;
   registerRef?: (el: HTMLDivElement | null) => void;
+  /** When set and CR is over threshold, renders a muted ghost marker at the
+   *  slider position that would make the judgments consistent. Purely visual
+   *  — does not move the thumb. */
+  impliedValue?: number;
 }
 
 export default function ComparisonInput({
@@ -21,6 +25,7 @@ export default function ComparisonInput({
   criterionLabel,
   isFocused = false,
   registerRef,
+  impliedValue,
 }: ComparisonInputProps) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const [showRing, setShowRing] = useState(false);
@@ -62,6 +67,17 @@ export default function ComparisonInput({
 
   const sliderValue = storedToSlider(value);
   const isSet = value !== undefined;
+
+  const impliedSliderValue = impliedValue !== undefined ? storedToSlider(impliedValue) : undefined;
+  const showGhost = impliedSliderValue !== undefined && impliedSliderValue !== sliderValue;
+  const ghostLeftPercent = impliedSliderValue !== undefined
+    ? ((impliedSliderValue + 8) / 16) * 100
+    : 0;
+  const impliedDirectionLabel = (() => {
+    if (impliedSliderValue === undefined || impliedSliderValue === 0) return '';
+    if (impliedSliderValue < 0) return itemA;
+    return itemB;
+  })();
 
   const getLabel = (): string => {
     if (!isSet) return 'Not set';
@@ -119,6 +135,25 @@ export default function ComparisonInput({
             />
           ))}
         </div>
+        {/* Ghost indicator — muted marker at the consistency-implied slider position */}
+        {showGhost && (
+          <div
+            className="absolute top-0 pointer-events-none"
+            style={{
+              left: `${ghostLeftPercent}%`,
+              transform: 'translateX(-50%)',
+              height: '30px',
+            }}
+            title={`Consistency target${impliedDirectionLabel ? ` — favors ${impliedDirectionLabel}` : ''}`}
+            aria-hidden="true"
+          >
+            <div className="text-[10px] leading-none text-gray-500 dark:text-gray-400 font-semibold -mt-1 select-none">▼</div>
+            <div
+              className="mx-auto border-l border-dashed border-gray-400 dark:border-gray-500 opacity-70"
+              style={{ width: 0, height: '26px' }}
+            />
+          </div>
+        )}
         {/* Slider thumb — below bars */}
         <input
           type="range"

@@ -1,5 +1,23 @@
 # SPERT® AHP — Changelog
 
+## v0.6.1 (April 18, 2026)
+
+### Consistency Advisor Polish
+- Advisor language now matches the layer: "more preferred" on alternative-layer rankings, "more important" on the decision-factor layer. Previously the advisor always said "important" even when the comparison slider below it said "preferred"
+- Fallback strings for out-of-range values ("Equally important" / "Equally preferred") are also mode-aware now
+- Transitivity prose ("A is Xx more important than B...") uses the same mode-dependent phrasing
+
+### Ghost Consistency Indicator
+- New passive marker on each comparison slider: a muted downward arrow plus dashed vertical line at the slider position that would make the judgment consistent with the user's other answers. Rendered only when the advisor has a CR-improvement target for that pair and it differs from the current thumb position
+- The ghost is visual only — it does not move the thumb or apply any value
+- Hover tooltip describes which side the consistency target favors
+- Ghost is `aria-hidden` since the spotlight row above conveys the same information accessibly
+
+### Architecture
+- `rankJudgments` and `findTransitivityViolations` computation lifted from `ConsistencyAdvisor` up to `ComparisonPanel` / `AlternativeLayer`, so the advisor spotlight and the per-row ghost share one `RankedJudgment[]` source of truth (no duplicate computation, guaranteed agreement)
+- `ConsistencyAdvisor` is now a pure view component taking `ranked`, `violations`, and `mode` as props
+- `ComparisonInput` accepts a new optional `impliedValue?: number` prop
+
 ## v0.6.0 (April 17, 2026)
 
 ### Consistency Advisor

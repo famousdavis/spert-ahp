@@ -1,13 +1,43 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import ComparisonInput from './ComparisonInput';
 import ComparisonMatrix from './ComparisonMatrix';
 import ConsistencyBadge from './ConsistencyBadge';
 import ConsistencyAdvisor from './ConsistencyAdvisor';
 import { useMatrix } from '../../hooks/useMatrix';
 import { selectComparisonsForTier } from '../../core/math/matrix';
-import type { UseAHPReturn, CompletionTier, StructuredItem, ComparisonMap } from '../../types/ahp';
+import { rankJudgments, findTransitivityViolations } from '../../core/math/consistency';
+import type {
+  UseAHPReturn,
+  CompletionTier,
+  StructuredItem,
+  ComparisonMap,
+  ConsistencyResult,
+  RankedJudgment,
+  TransitivityViolation,
+} from '../../types/ahp';
 
 const FOCUS_CLEAR_MS = 2100;
+
+interface AdvisorData {
+  ranked: RankedJudgment[];
+  violations: TransitivityViolation[];
+  impliedMap: Map<string, number>;
+}
+
+function computeAdvisorData(
+  n: number,
+  tier: CompletionTier,
+  comparisons: ComparisonMap,
+  cr: ConsistencyResult | null,
+): AdvisorData {
+  const empty: AdvisorData = { ranked: [], violations: [], impliedMap: new Map() };
+  if (!cr || cr.cr === null || cr.cr <= 0.10) return empty;
+  const ranked = rankJudgments(n, comparisons, tier);
+  const violations = findTransitivityViolations(n, comparisons, tier);
+  const impliedMap = new Map<string, number>();
+  for (const r of ranked) impliedMap.set(`${r.i},${r.j}`, r.impliedValue);
+  return { ranked, violations, impliedMap };
+}
 
 interface AlternativeLayerProps {
   criterionId: string;
@@ -53,6 +83,12 @@ function AlternativeLayer({ criterionId, criterionLabel, alternativeItems, tier,
     });
   }, []);
 
+  // Tick-level recompute. Acceptable for v0.6.x; debounce candidate for a future pass.
+  const advisorData = useMemo(
+    () => computeAdvisorData(n, tier, matrix.comparisons, matrix.cr),
+    [n, tier, matrix.comparisons, matrix.cr],
+  );
+
   return (
     <div className="space-y-6">
       {matrix.cr && (
@@ -62,10 +98,12 @@ function AlternativeLayer({ criterionId, criterionLabel, alternativeItems, tier,
       <ConsistencyAdvisor
         n={n}
         tier={tier}
-        comparisons={matrix.comparisons}
         items={alternativeItems}
         cr={matrix.cr}
+        ranked={advisorData.ranked}
+        violations={advisorData.violations}
         onReconsider={onReconsider}
+        mode="preference"
       />
 
       {!matrix.converged && (
@@ -114,6 +152,7 @@ function AlternativeLayer({ criterionId, criterionLabel, alternativeItems, tier,
               mode="preference"
               criterionLabel={criterionLabel}
               isFocused={focusedPair === key}
+              impliedValue={advisorData.impliedMap.get(key)}
               registerRef={(el) => {
                 if (el) rowRefs.current.set(key, el);
                 else rowRefs.current.delete(key);
@@ -191,6 +230,11 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
     });
   }, []);
 
+  const criteriaAdvisorData = useMemo(
+    () => computeAdvisorData(criteriaItems.length, tier, criteriaMatrix.comparisons, criteriaMatrix.cr),
+    [criteriaItems.length, tier, criteriaMatrix.comparisons, criteriaMatrix.cr],
+  );
+
   if (!ahpState.modelId) {
     return <p className="text-gray-500 dark:text-gray-400">Create a decision first in the Setup tab.</p>;
   }
@@ -258,9 +302,10 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
           <ConsistencyAdvisor
             n={criteriaItems.length}
             tier={tier}
-            comparisons={criteriaMatrix.comparisons}
             items={criteriaItems}
             cr={criteriaMatrix.cr}
+            ranked={criteriaAdvisorData.ranked}
+            violations={criteriaAdvisorData.violations}
             onReconsider={onReconsiderCriteria}
           />
 
@@ -309,6 +354,7 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
                   value={criteriaMatrix.comparisons[key]}
                   onChange={(val) => criteriaMatrix.setComparison(i, j, val)}
                   isFocused={criteriaFocusedPair === key}
+                  impliedValue={criteriaAdvisorData.impliedMap.get(key)}
                   registerRef={(el) => {
                     if (el) criteriaRowRefs.current.set(key, el);
                     else criteriaRowRefs.current.delete(key);
