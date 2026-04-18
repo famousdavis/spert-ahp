@@ -9,6 +9,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.2',
+    date: '2026-04-18',
+    sections: [
+      {
+        title: 'Security',
+        items: [
+          'First security audit pass. Six findings fixed across Firestore rules, UI gating, and the import path; audit report and deferred items retained internally for future passes',
+          'Firestore rules: editors can no longer write owner-governed fields on a decision (resultsVisibility, synthesis, publishedSynthesisId, collaborators). Previously the UI gated these to owners but the deployed rule allowed editors to bypass via direct adapter calls',
+          'Firestore rules: bulk enumeration of SPERT AHP user profiles is now blocked. The share-by-email lookup still works because it uses a limit(1) query; the collection can no longer be listed in bulk by any authenticated Firebase user',
+          'Export is now owner-only in cloud mode. Previously any collaborator (including viewers) could export a shared decision and receive every voter\'s raw comparison matrices in the JSON file, bypassing the "show aggregated to voters" privacy toggle. Local-mode export is unchanged — the local user is always sole owner',
+          'JSON import now whitelist-copies every known field from the uploaded envelope. Unknown/rogue fields on meta, structure, items, or responses are dropped rather than persisted as-is. No current rendering path was affected; this is defense-in-depth',
+          'JSON import now enforces a 2 MB file size cap. A legitimate AHP export with 50 voters at Complete tier is well under 500 KB; larger files are rejected before JSON.parse to prevent browser hangs on malformed or malicious payloads',
+        ],
+      },
+      {
+        title: 'Docs',
+        items: [
+          'SynthesisBundle type comment now documents that a published synthesis is a point-in-time snapshot; removing a collaborator after synthesis does not retroactively redact them from the stored bundle until synthesis is re-run',
+          'Checked-in firestore.rules now mirrors the full suite-wide ruleset as deployed (all SPERT apps plus /users/{uid} ToS record), so the repo file can be diffed against Firebase Console output',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.7.1',
     date: '2026-04-18',
     sections: [

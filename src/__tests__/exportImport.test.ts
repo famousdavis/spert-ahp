@@ -129,7 +129,7 @@ describe('exportImport — Group 2: end-to-end local round-trip', () => {
     // Export
     const envelope = await exportModel(rA.current.storage, modelId!, 'test-workspace-A');
     expect(envelope.spertAhpExportVersion).toBe(1);
-    expect(envelope.appVersion).toBe('0.7.1');
+    expect(envelope.appVersion).toBe('0.7.2');
     expect(envelope.meta.title).toBe('Laptops');
     expect(envelope.collaborators).toHaveLength(1);
     expect(envelope.collaborators[0]!.userId).toBe(USER_A);
@@ -208,6 +208,52 @@ describe('exportImport — Group 3: version guard', () => {
     await expect(
       importModel(new LocalStorageAdapter(), JSON.stringify(envelope), USER_B),
     ).rejects.toThrow(/Malformed export: missing 'structure'/);
+  });
+
+  it('rejects payloads larger than the 2 MB cap', async () => {
+    // Construct a 3 MB payload — well over the 2 MB limit. Contents don't
+    // need to be valid; the size guard runs before JSON.parse.
+    const oversized = 'x'.repeat(3 * 1024 * 1024);
+    await expect(
+      importModel(new LocalStorageAdapter(), oversized, USER_B),
+    ).rejects.toThrow(/exceeds the 2 MB limit/);
+  });
+
+  it('drops unknown fields from meta (whitelist-copy)', async () => {
+    // Craft an envelope where meta has an extra rogue field. The whitelist
+    // pick should strip it before persistence.
+    const envelope = {
+      spertAhpExportVersion: 1,
+      appVersion: '0.7.2',
+      exportedAt: Date.now(),
+      sourceModelId: 'model-x',
+      _exportedBy: null,
+      _storageRef: 'ws',
+      meta: {
+        ...baseMeta(),
+        rogueField: 'should be dropped',
+      } as unknown as ReturnType<typeof baseMeta>,
+      structure: baseStructure(),
+      collaborators: [{ userId: 'alice', role: 'owner' as const, isVoting: true }],
+      responses: {
+        alice: {
+          userId: 'alice',
+          status: 'in_progress' as const,
+          criteriaMatrix: {},
+          alternativeMatrices: {},
+          cr: {},
+          lastModifiedAt: 1,
+          structureVersionAtSubmission: 1,
+        },
+      },
+      synthesis: null,
+    };
+
+    const adapter = new LocalStorageAdapter();
+    const newModelId = await importModel(adapter, JSON.stringify(envelope), 'importer');
+    const loaded = await adapter.getModel(newModelId);
+    expect(loaded).not.toBeNull();
+    expect('rogueField' in (loaded!.meta as unknown as Record<string, unknown>)).toBe(false);
   });
 });
 
