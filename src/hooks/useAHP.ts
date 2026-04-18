@@ -6,12 +6,11 @@ import {
   createCollaboratorDoc,
   createResponseDoc,
 } from '../core/models/AHPModel';
-import { hashObject } from './hashObject';
-import { aggregateIJ, kendallW, computeDisagreement, cosineSimilarity, computeSynthesisConfidenceLevel } from '../core/math/aggregation';
-import { consistencyRatio } from '../core/math/consistency';
-import { synthesize } from '../core/math/synthesis';
-import { llsmWeights, buildMatrix } from '../core/math/matrix';
-import { principalEigenvector } from '../core/math/eigenvector';
+import {
+  deserializeSynthesisFromFirestore,
+  type FirestoreSynthesis,
+} from '../storage/firestoreSynthesisCodec';
+import { computeSynthesis } from './synthesisPipeline';
 import type {
   AHPState,
   AHPAction,
@@ -21,11 +20,6 @@ import type {
   CollaboratorDoc,
   ComparisonMap,
   ResponseDoc,
-  ConsistencyResult,
-  VotingMember,
-  ConcordanceInterpretation,
-  PairCoverageDiagnostic,
-  SynthesisBundle,
 } from '../types/ahp';
 
 const initialState: AHPState = {
@@ -196,241 +190,31 @@ export function useAHP(userId: string): UseAHPReturn {
     await storage.updateModel(state.modelId, { synthesisStatus: 'computing' });
 
     try {
-      const n = state.structure.criteria.length;
-      const completionTier = state.model.completionTier;
-      const collabs = await storage.getCollaborators(state.modelId);
-      const votingMembers: VotingMember[] = collabs.map((c) => ({ userId: c.userId, isVoting: c.isVoting }));
-
-      const allCriteriaComparisons: Array<{ userId: string; comparisons: ComparisonMap }> = [];
-      const allAlternativeComparisons: Record<string, Array<{ userId: string; comparisons: ComparisonMap }>> = {};
-      const individualCR: Record<string, { criteria: ConsistencyResult }> = {};
-      const voterTimestamps: Record<string, number> = {};
-      const isVotingSnapshot: Record<string, boolean> = {};
-
-      for (const collab of collabs) {
-        const response = await storage.getResponse(state.modelId, collab.userId);
-        if (!response) continue;
-
-        voterTimestamps[collab.userId] = response.lastModifiedAt;
-        isVotingSnapshot[collab.userId] = collab.isVoting;
-
-        const critComp = await storage.getComparisons(state.modelId, collab.userId, 'criteria');
-        allCriteriaComparisons.push({ userId: collab.userId, comparisons: critComp });
-
-        const critCR = consistencyRatio(n, critComp, completionTier);
-        individualCR[collab.userId] = { criteria: critCR };
-
-        for (const criterion of state.structure.criteria) {
-          if (!allAlternativeComparisons[criterion.id]) {
-            allAlternativeComparisons[criterion.id] = [];
-          }
-          const altComp = await storage.getComparisons(state.modelId, collab.userId, criterion.id);
-          allAlternativeComparisons[criterion.id]!.push({
-            userId: collab.userId,
-            comparisons: altComp,
-          });
-        }
-      }
-
-      const { consensusComparisons: critConsensus, pairCoveragePercent } = aggregateIJ(
-        allCriteriaComparisons, null, votingMembers, n, completionTier,
-      );
-
-      let criteriaWeights: number[];
-      if (completionTier === 4) {
-        const matrix = buildMatrix(n, critConsensus);
-        criteriaWeights = principalEigenvector(matrix);
-      } else {
-        const { weights } = llsmWeights(n, critConsensus);
-        criteriaWeights = weights;
-      }
-
-      const numAlts = state.structure.alternatives.length;
-      const localPriorities: number[][] = Array.from({ length: numAlts }, () => new Array<number>(n).fill(0));
-      const individualPriorities: Record<string, number[]> = {};
-
-      for (let k = 0; k < state.structure.criteria.length; k++) {
-        const criterion = state.structure.criteria[k]!;
-        const altComps = allAlternativeComparisons[criterion.id] ?? [];
-
-        const { consensusComparisons: altConsensus } = aggregateIJ(
-          altComps, null, votingMembers, numAlts, completionTier,
-        );
-
-        let altWeights: number[];
-        if (completionTier === 4) {
-          const matrix = buildMatrix(numAlts, altConsensus);
-          altWeights = principalEigenvector(matrix);
-        } else {
-          const { weights } = llsmWeights(numAlts, altConsensus);
-          altWeights = weights;
-        }
-
-        for (let a = 0; a < numAlts; a++) {
-          localPriorities[a]![k] = altWeights[a]!;
-        }
-      }
-
-      const globalScores = synthesize(criteriaWeights, localPriorities);
-
-      // IMPORTANT: votingCollabs and criteriaVectors must be derived from the same
-      // filter in the same order. criteriaVectors[idx] maps to votingCollabs[idx].
-      const votingCollabs = allCriteriaComparisons
-        .filter((c) => votingMembers.find((m) => m.userId === c.userId && m.isVoting));
-
-      const criteriaVectors = votingCollabs
-        .map((c) => {
-          if (completionTier === 4) {
-            const matrix = buildMatrix(n, c.comparisons);
-            return principalEigenvector(matrix);
-          }
-          const { weights } = llsmWeights(n, c.comparisons);
-          return weights;
-        });
-
-      // Populate per-voter factor weights
-      votingCollabs.forEach((c, idx) => {
-        individualPriorities[c.userId] = criteriaVectors[idx]!;
+      const { synthesisId, bundle } = await computeSynthesis({
+        modelId: state.modelId,
+        structure: state.structure,
+        model: state.model,
+        storage,
       });
 
-      // Compute per-voter alternative rankings and global scores
-      const individualAlternativeScores: Record<string, number[]> = {};
-      const individualLocalPriorities: Record<string, number[][]> = {};
-      const individualIncompleteCriteria: Record<string, string[]> = {};
-
-      for (const collab of votingCollabs) {
-        const voterLocalPriorities: number[][] = Array.from(
-          { length: numAlts }, () => new Array<number>(n).fill(0),
-        );
-        const incompleteCriteria: string[] = [];
-
-        for (let k = 0; k < state.structure.criteria.length; k++) {
-          const criterion = state.structure.criteria[k]!;
-          const voterAltComps = allAlternativeComparisons[criterion.id]
-            ?.find((c) => c.userId === collab.userId)?.comparisons ?? {};
-
-          let voterAltWeights: number[];
-          if (Object.keys(voterAltComps).length === 0) {
-            // No comparisons for this criterion — use uniform weights (mathematically neutral)
-            voterAltWeights = new Array<number>(numAlts).fill(1 / numAlts);
-            incompleteCriteria.push(criterion.id);
-          } else if (completionTier === 4) {
-            const m = buildMatrix(numAlts, voterAltComps);
-            voterAltWeights = principalEigenvector(m);
-          } else {
-            const { weights: w } = llsmWeights(numAlts, voterAltComps);
-            voterAltWeights = w;
-          }
-
-          for (let a = 0; a < numAlts; a++) {
-            voterLocalPriorities[a]![k] = voterAltWeights[a]!;
-          }
-        }
-
-        individualLocalPriorities[collab.userId] = voterLocalPriorities;
-        if (incompleteCriteria.length > 0) {
-          individualIncompleteCriteria[collab.userId] = incompleteCriteria;
-        }
-        const voterWeights = individualPriorities[collab.userId];
-        if (voterWeights) {
-          individualAlternativeScores[collab.userId] = synthesize(voterWeights, voterLocalPriorities);
-        }
-      }
-
-      const voterWeightVectors = Object.values(individualPriorities);
-      const W = voterWeightVectors.length > 1 ? kendallW(voterWeightVectors) : 1.0;
-
-      const thresholds = state.model.disagreementConfig?.thresholds ?? { agreement: 0.15, mild: 0.35 };
-      const disagreement = computeDisagreement(criteriaVectors, thresholds);
-      const maxCV = disagreement.items.length > 0
-        ? Math.max(...disagreement.items.map((d) => d.cv))
-        : 0;
-
-      const crValues = Object.values(individualCR)
-        .map((cr) => cr.criteria?.cr)
-        .filter((v): v is number => v !== null && v !== undefined);
-      const avgCR = crValues.length > 0
-        ? crValues.reduce((a, b) => a + b, 0) / crValues.length
-        : 0;
-
-      const votingCount = votingMembers.filter((m) => m.isVoting).length;
-      const confidence = computeSynthesisConfidenceLevel(
-        votingCount, avgCR, W, maxCV, pairCoveragePercent,
-      );
-
-      const pairwiseAgreement: Record<string, number> = {};
-      for (let i = 0; i < criteriaVectors.length; i++) {
-        for (let j = i + 1; j < criteriaVectors.length; j++) {
-          pairwiseAgreement[`${i},${j}`] = cosineSimilarity(criteriaVectors[i]!, criteriaVectors[j]!);
-        }
-      }
-
-      const votingMemberIds = votingMembers
-        .filter((m) => m.isVoting)
-        .map((m) => m.userId)
-        .sort();
-
-      const hashInput: Record<string, unknown> = {
-        votingMemberIds,
-        voterTimestamps,
-        isVotingSnapshot,
-        structureVersion: state.structure.structureVersion,
-        aggregationMethod: 'AIJ',
-        completionTier,
-      };
-      const synthesisId = await hashObject(hashInput);
-
-      const concordanceInterpretation: ConcordanceInterpretation = W > 0.7 ? 'strong' : W > 0.5 ? 'moderate' : 'weak';
-      const pairCoverageDiagnostic: PairCoverageDiagnostic = pairCoveragePercent >= 1.0 ? 'full' : pairCoveragePercent >= 0.7 ? 'partial' : 'low';
-
-      const summary: SynthesisBundle['summary'] = {
-        method: 'AIJ',
-        aggregatedWeights: criteriaWeights,
-        localPriorities,
-        globalScores,
-        concordance: { kendallW: W, interpretation: concordanceInterpretation },
-        votersIncluded: votingMemberIds,
-        votersExcluded: votingMembers.filter((m) => !m.isVoting).map((m) => ({ userId: m.userId, reason: 'not voting' })),
-        synthesizedAt: Date.now(),
-        synthesisId,
-        isVotingSnapshot,
-        pairCoveragePercent,
-        pairCoverageDiagnostic,
-        confidence,
-      };
-
-      const individual: SynthesisBundle['individual'] = {
-        individualPriorities,
-        individualCR,
-        individualAlternativeScores,
-        individualLocalPriorities,
-        individualIncompleteCriteria,
-      };
-
-      const diagnostics: SynthesisBundle['diagnostics'] = {
-        disagreement,
-        pairwiseAgreement,
-      };
-
-      await storage.saveSynthesis(state.modelId, synthesisId, { summary, individual, diagnostics });
+      await storage.saveSynthesis(state.modelId, synthesisId, bundle);
       await storage.updateModel(state.modelId, {
         synthesisStatus: 'current',
         publishedSynthesisId: synthesisId,
       });
 
-      dispatch({ type: 'SET_SYNTHESIS', payload: { summary, individual, diagnostics } });
+      dispatch({ type: 'SET_SYNTHESIS', payload: bundle });
       dispatch({
         type: 'UPDATE_MODEL',
         payload: { synthesisStatus: 'current', publishedSynthesisId: synthesisId },
       });
       dispatch({ type: 'SET_LOADING', payload: false });
-
     } catch (err) {
       await storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
       dispatch({ type: 'SET_ERROR', payload: (err as Error).message });
       dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'out_of_date' } });
     }
-  }, [state.modelId, state.structure, state.model, userId, storage]);
+  }, [state.modelId, state.structure, state.model, storage]);
 
   const closeModel = useCallback(() => {
     dispatch({ type: 'RESET' });
@@ -465,6 +249,10 @@ export function useAHP(userId: string): UseAHPReturn {
         publishedSynthesisId: (d['publishedSynthesisId'] as string | null) ?? null,
         _originRef: d['_originRef'] as string,
         _changeLog: (d['_changeLog'] as ModelDoc['_changeLog']) ?? [],
+        resultsVisibility: (d['resultsVisibility'] as ModelDoc['resultsVisibility']) ?? {
+          showAggregatedToVoters: false,
+          showOwnRankingsToVoters: true,
+        },
       };
       const structure: StructureDoc = {
         criteria: (d['criteria'] as StructureDoc['criteria']) ?? [],
@@ -487,31 +275,11 @@ export function useAHP(userId: string): UseAHPReturn {
       }
 
       // Synthesis
-      const synthesis = d['synthesis'] as
-        | { synthesisId: string; summary: SynthesisBundle['summary']; individual: SynthesisBundle['individual']; diagnostics: SynthesisBundle['diagnostics'] }
-        | null;
+      const synthesis = d['synthesis'] as FirestoreSynthesis | null;
       if (synthesis && synthesis.synthesisId === meta.publishedSynthesisId) {
-        // Deserialize nested arrays stored as JSON strings (Firestore workaround)
-        const summary = { ...synthesis.summary };
-        if (typeof summary.localPriorities === 'string') {
-          summary.localPriorities = JSON.parse(summary.localPriorities as string) as number[][];
-        }
-        const individual = {
-          individualPriorities: synthesis.individual?.individualPriorities ?? {},
-          individualCR: synthesis.individual?.individualCR ?? {},
-          individualAlternativeScores: synthesis.individual?.individualAlternativeScores ?? {},
-          individualLocalPriorities: typeof synthesis.individual?.individualLocalPriorities === 'string'
-            ? JSON.parse(synthesis.individual.individualLocalPriorities as unknown as string) as Record<string, number[][]>
-            : synthesis.individual?.individualLocalPriorities ?? {},
-          individualIncompleteCriteria: synthesis.individual?.individualIncompleteCriteria ?? {},
-        };
         dispatch({
           type: 'SET_SYNTHESIS',
-          payload: {
-            summary,
-            individual,
-            diagnostics: synthesis.diagnostics,
-          },
+          payload: deserializeSynthesisFromFirestore(synthesis),
         });
       }
     });

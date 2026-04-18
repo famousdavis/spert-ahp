@@ -9,6 +9,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.1',
+    date: '2026-04-18',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Cloud mode: real-time sync of the Results Visibility setting. When an owner toggled "show aggregated results to voters" or "show own rankings to voters" on one device, the change was dropped on other subscribed devices — the subscription handler was rebuilding the model record without including the visibility block. Fix: preserve resultsVisibility when applying remote updates',
+        ],
+      },
+      {
+        title: 'Refactor',
+        items: [
+          'First refactor pass on the codebase. Three decompositions with no behavior change — all 153 pre-existing tests still pass, and 8 new tests added for the extracted modules and the visibility bug fix',
+          'Extracted a Firestore synthesis codec that centralizes the nested-array JSON-string workaround. Four duplicated serialization/deserialization sites (saveSynthesis, getSynthesis, createModelFromBundle, and the useAHP subscription handler) now share one implementation',
+          'Extracted the synthesis math pipeline out of useAHP. The hook shrank from 533 to 301 lines; the 243-line computation moved to a pure pipeline module that can be reasoned about and tested independently of state and storage',
+          'Extracted the shared pairwise-comparison layer body. The criteria-layer render block and the per-criterion alternatives-layer render block were ~80% duplicated; ComparisonPanel shrank from 405 to 188 lines with a shared 187-line layer component consumed by both',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-04-18',
     sections: [
