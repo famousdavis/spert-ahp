@@ -8,10 +8,14 @@ import {
   query,
   where,
   getDocs,
-  serverTimestamp,
   onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import {
+  serializeSynthesisForFirestore,
+  deserializeSynthesisFromFirestore,
+  type FirestoreSynthesis,
+} from './firestoreSynthesisCodec';
 import type {
   StorageAdapter,
   ModelDoc,
@@ -64,13 +68,10 @@ interface FirestoreModelDoc {
   // Embedded responses map keyed by uid
   responses: Record<string, ResponseDoc>;
 
-  // Latest published synthesis (only the current bundle, not history)
-  synthesis: {
-    synthesisId: string;
-    summary: SynthesisBundle['summary'];
-    individual: SynthesisBundle['individual'];
-    diagnostics: SynthesisBundle['diagnostics'];
-  } | null;
+  // Latest published synthesis (only the current bundle, not history).
+  // Stored shape matches FirestoreSynthesis: nested-array fields encoded as
+  // JSON strings by the codec; see firestoreSynthesisCodec.ts.
+  synthesis: FirestoreSynthesis | null;
 
   // Visibility controls
   resultsVisibility?: ModelDoc['resultsVisibility'];
@@ -174,28 +175,13 @@ export class FirestoreAdapter implements StorageAdapter {
     // Ensure creator is owner
     if (!members[this.uid]) members[this.uid] = 'owner';
 
-    // Inline synthesis with nested-array JSON-string serialization
-    // (mirrors saveSynthesis; Firestore does not support nested arrays).
-    let synthesisField: FirestoreModelDoc['synthesis'] = null;
-    if (bundle.synthesis && bundle.meta.publishedSynthesisId) {
-      const summary = { ...bundle.synthesis.summary } as SynthesisBundle['summary'];
-      const individual = { ...bundle.synthesis.individual } as SynthesisBundle['individual'];
-      const serializedSummary = JSON.parse(JSON.stringify(summary)) as Record<string, unknown>;
-      if (summary.localPriorities) {
-        serializedSummary['localPriorities'] = JSON.stringify(summary.localPriorities);
-      }
-      const serializedIndividual = JSON.parse(JSON.stringify(individual)) as Record<string, unknown>;
-      if (individual.individualLocalPriorities) {
-        serializedIndividual['individualLocalPriorities'] =
-          JSON.stringify(individual.individualLocalPriorities);
-      }
-      synthesisField = {
-        synthesisId: bundle.meta.publishedSynthesisId,
-        summary: serializedSummary as unknown as SynthesisBundle['summary'],
-        individual: serializedIndividual as unknown as SynthesisBundle['individual'],
-        diagnostics: bundle.synthesis.diagnostics,
-      };
-    }
+    const synthesisField: FirestoreModelDoc['synthesis'] =
+      bundle.synthesis && bundle.meta.publishedSynthesisId
+        ? (serializeSynthesisForFirestore(
+            bundle.meta.publishedSynthesisId,
+            bundle.synthesis,
+          ) as unknown as FirestoreSynthesis)
+        : null;
 
     const payload: FirestoreModelDoc = {
       owner: this.uid,
@@ -418,34 +404,12 @@ export class FirestoreAdapter implements StorageAdapter {
     synthesisId: string,
     docs: Partial<SynthesisBundle>,
   ): Promise<void> {
-    // Only one bundle stored at a time — top-level `synthesis` field
     const snap = await getDoc(docRef(modelId));
     if (!snap.exists()) throw new Error(`Model ${modelId} not found`);
     const d = snap.data() as FirestoreModelDoc;
 
-    // Preserve fields that weren't included in this call
-    const existing = d.synthesis;
-    const merged = {
-      synthesisId,
-      summary: docs.summary ?? (existing?.summary as SynthesisBundle['summary']),
-      individual: docs.individual ?? (existing?.individual as SynthesisBundle['individual']),
-      diagnostics: docs.diagnostics ?? (existing?.diagnostics as SynthesisBundle['diagnostics']),
-    };
-
-    // Firestore does not support nested arrays. Serialize number[][] fields
-    // as JSON strings before writing, and deserialize on read in getSynthesis.
-    const toWrite = JSON.parse(JSON.stringify(merged)) as Record<string, unknown>;
-    if (merged.summary?.localPriorities) {
-      (toWrite['summary'] as Record<string, unknown>)['localPriorities'] =
-        JSON.stringify(merged.summary.localPriorities);
-    }
-    if (merged.individual?.individualLocalPriorities) {
-      (toWrite['individual'] as Record<string, unknown>)['individualLocalPriorities'] =
-        JSON.stringify(merged.individual.individualLocalPriorities);
-    }
-
     await updateDoc(docRef(modelId), {
-      synthesis: toWrite,
+      synthesis: serializeSynthesisForFirestore(synthesisId, docs, d.synthesis),
       updatedAt: Date.now(),
     });
   }
@@ -455,25 +419,7 @@ export class FirestoreAdapter implements StorageAdapter {
     if (!snap.exists()) return null;
     const d = snap.data() as FirestoreModelDoc;
     if (!d.synthesis || d.synthesis.synthesisId !== synthesisId) return null;
-    const summary = { ...d.synthesis.summary };
-    // Deserialize nested arrays stored as JSON strings
-    if (typeof summary.localPriorities === 'string') {
-      summary.localPriorities = JSON.parse(summary.localPriorities as string) as number[][];
-    }
-    const individual = {
-      individualPriorities: d.synthesis.individual?.individualPriorities ?? {},
-      individualCR: d.synthesis.individual?.individualCR ?? {},
-      individualAlternativeScores: d.synthesis.individual?.individualAlternativeScores ?? {},
-      individualLocalPriorities: typeof d.synthesis.individual?.individualLocalPriorities === 'string'
-        ? JSON.parse(d.synthesis.individual.individualLocalPriorities as unknown as string) as Record<string, number[][]>
-        : d.synthesis.individual?.individualLocalPriorities ?? {},
-      individualIncompleteCriteria: d.synthesis.individual?.individualIncompleteCriteria ?? {},
-    };
-    return {
-      summary,
-      individual,
-      diagnostics: d.synthesis.diagnostics,
-    };
+    return deserializeSynthesisFromFirestore(d.synthesis);
   }
 
   // ─── Subscriptions ─────────────────────────────────────────
@@ -489,5 +435,3 @@ export class FirestoreAdapter implements StorageAdapter {
   }
 }
 
-// Suppress unused import
-void serverTimestamp;

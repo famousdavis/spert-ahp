@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { LocalStorageAdapter } from '../storage/LocalStorageAdapter';
 import { StorageContext } from '../contexts/StorageContext';
 import { AuthContext } from '../contexts/AuthContext';
+import type { StorageAdapter } from '../types/ahp';
 
 /**
  * Test wrapper providing a local-mode LocalStorageAdapter via StorageContext
@@ -9,6 +10,20 @@ import { AuthContext } from '../contexts/AuthContext';
  */
 export function TestProviders({ children }: { children: ReactNode }) {
   const adapter = new LocalStorageAdapter();
+  return <TestProvidersWithAdapter adapter={adapter}>{children}</TestProvidersWithAdapter>;
+}
+
+/**
+ * Variant that accepts an injected StorageAdapter — used by tests that need
+ * to drive subscription callbacks or mock storage behavior.
+ */
+export function TestProvidersWithAdapter({
+  adapter,
+  children,
+}: {
+  adapter: StorageAdapter;
+  children: ReactNode;
+}) {
   return (
     <AuthContext.Provider
       value={{

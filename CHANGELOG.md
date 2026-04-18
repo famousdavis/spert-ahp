@@ -1,5 +1,18 @@
 # SPERT® AHP — Changelog
 
+## v0.7.1 (April 18, 2026)
+
+### Fixed
+- **Cloud sync of Results Visibility settings.** When an owner toggled "show aggregated results to voters" or "show own rankings to voters" on one device, the change was dropped on other subscribed devices. The Firestore subscription handler rebuilt the model record field-by-field and omitted the `resultsVisibility` block, so `SET_MODEL` replaced the meta with one that silently lost the setting. Fix: preserve `resultsVisibility` (with defaults when absent) in the subscription decode path. Local mode was never affected — subscriptions are a no-op there and `loadModel` already backfills via the adapter's own meta unwrapper
+
+### Refactor
+First refactor pass on the codebase — no behavior change. All 153 pre-existing tests still pass; 8 new tests added for the extracted modules and the visibility bug fix. Three decompositions:
+
+- **Firestore synthesis codec** ([src/storage/firestoreSynthesisCodec.ts](src/storage/firestoreSynthesisCodec.ts)). Firestore does not support nested arrays, so `summary.localPriorities` and `individual.individualLocalPriorities` are JSON-stringified on write and parsed on read. That workaround was duplicated across four sites: `FirestoreAdapter.saveSynthesis`, `FirestoreAdapter.getSynthesis`, `FirestoreAdapter.createModelFromBundle`, and the `useAHP` subscription handler. All four now share one `serializeSynthesisForFirestore` / `deserializeSynthesisFromFirestore` pair
+- **Synthesis math pipeline** ([src/hooks/synthesisPipeline.ts](src/hooks/synthesisPipeline.ts)). `useAHP.runSynthesis` was 243 lines that interleaved storage I/O, voter-data gathering, AIJ aggregation, eigenvector/LLSM computation, per-voter priorities, confidence signals, and hashing. Extracted to `computeSynthesis(inputs)` which returns `{ synthesisId, bundle }`. The hook becomes a thin orchestrator: compute → persist → dispatch. `useAHP.ts` went from 533 to 301 lines
+- **PairwiseComparisonLayer component** ([src/components/comparison/PairwiseComparisonLayer.tsx](src/components/comparison/PairwiseComparisonLayer.tsx)). The criteria-layer render block and the per-criterion alternatives-layer render block in `ComparisonPanel` were ~80% duplicated — ConsistencyBadge, advisor, convergence/connectivity warnings, owner matrix details, pairs list, weights display. Extracted to a shared component consumed by both. `ComparisonPanel.tsx` went from 405 to 188 lines
+- Minor cleanup: removed a dead `void serverTimestamp` suppression in `FirestoreAdapter.ts` (import was unused)
+
 ## v0.7.0 (April 18, 2026)
 
 ### JSON Export/Import
