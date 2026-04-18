@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ItemBuilder from './ItemBuilder';
 import TierSelector from './TierSelector';
+import { importModel } from '../../storage/importModel';
 import type { UseAHPReturn, CompletionTier, ModelIndexEntry } from '../../types/ahp';
 
 interface ModelSetupProps {
@@ -8,10 +9,13 @@ interface ModelSetupProps {
   userId: string;
 }
 
-export default function ModelSetup({ ahpState, userId: _userId }: ModelSetupProps) {
+export default function ModelSetup({ ahpState, userId }: ModelSetupProps) {
   const [title, setTitle] = useState('');
   const [goal, setGoal] = useState('');
   const [savedModels, setSavedModels] = useState<ModelIndexEntry[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
   const hasModel = !!ahpState.modelId;
   const hasResponses = Object.keys(ahpState.responses).length > 0;
   const hasComparisons = hasResponses && Object.values(ahpState.responses).some(
@@ -37,6 +41,29 @@ export default function ModelSetup({ ahpState, userId: _userId }: ModelSetupProp
     if (!window.confirm(`Delete "${modelTitle}"? This cannot be undone.`)) return;
     await ahpState.storage.deleteModel(modelId);
     setSavedModels(await ahpState.storage.listModels());
+  };
+
+  const handleImportClick = () => {
+    setImportError(null);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsImporting(true);
+    setImportError(null);
+    try {
+      const text = await file.text();
+      const newModelId = await importModel(ahpState.storage, text, userId);
+      setSavedModels(await ahpState.storage.listModels());
+      await ahpState.loadModel(newModelId);
+    } catch (err) {
+      setImportError((err as Error).message);
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleStructureChange = (field: 'criteria' | 'alternatives', value: unknown) => {
@@ -73,13 +100,34 @@ export default function ModelSetup({ ahpState, userId: _userId }: ModelSetupProp
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          <button
-            onClick={handleCreate}
-            disabled={!title.trim()}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            Create Decision
-          </button>
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={handleCreate}
+              disabled={!title.trim()}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              Create Decision
+            </button>
+            <button
+              onClick={handleImportClick}
+              disabled={isImporting}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+            >
+              {isImporting ? 'Importing…' : 'Import from JSON'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={(e) => { void handleFileChange(e); }}
+              className="hidden"
+            />
+          </div>
+          {importError && (
+            <div className="text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md p-2">
+              {importError}
+            </div>
+          )}
         </div>
 
         {savedModels.length > 0 && (

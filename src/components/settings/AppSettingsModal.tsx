@@ -6,7 +6,7 @@ interface AppSettingsModalProps {
   onClose: () => void;
 }
 
-const ATTRIBUTION_KEY = 'ahp/exportAttribution';
+export const ATTRIBUTION_KEY = 'ahp/exportAttribution';
 
 interface ExportAttribution {
   name: string;
@@ -74,7 +74,7 @@ export default function AppSettingsModal({ open, onClose }: AppSettingsModalProp
           <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-3">
             <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Export Attribution</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Your name and identifier are included when you export decisions (future feature).
+              Your name and identifier are included when you export decisions as JSON.
             </p>
             <div className="space-y-2">
               <div>

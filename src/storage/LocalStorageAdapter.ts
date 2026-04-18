@@ -9,6 +9,7 @@ import type {
   ModelIndexEntry,
   ComparisonMap,
   SynthesisBundle,
+  AHPExportBundle,
 } from '../types/ahp';
 
 const PREFIX = 'ahp';
@@ -90,6 +91,22 @@ export class LocalStorageAdapter implements StorageAdapter {
       createdAt: metaDoc.createdAt,
     });
     setJSON(key('modelIndex'), index);
+  }
+
+  async createModelFromBundle(modelId: string, bundle: AHPExportBundle): Promise<void> {
+    await this.createModel(modelId, bundle.meta, bundle.structure);
+
+    for (const c of bundle.collaborators) {
+      await this.addCollaborator(modelId, c);
+    }
+
+    for (const responseDoc of Object.values(bundle.responses)) {
+      await this.createResponse(modelId, responseDoc);
+    }
+
+    if (bundle.synthesis && bundle.meta.publishedSynthesisId) {
+      await this.saveSynthesis(modelId, bundle.meta.publishedSynthesisId, bundle.synthesis);
+    }
   }
 
   async getModel(modelId: string): Promise<{ meta: ModelDoc; structure: StructureDoc } | null> {

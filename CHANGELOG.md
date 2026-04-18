@@ -1,5 +1,25 @@
 # SPERT® AHP — Changelog
 
+## v0.7.0 (April 18, 2026)
+
+### JSON Export/Import
+- Export any decision as a portable JSON file from the Settings tab. The envelope includes meta, structure, collaborators, responses, and the currently published synthesis, plus an `_exportedBy` attribution block pulled from app-level Export Attribution
+- Import a previously exported decision from the Setup screen via a new "Import from JSON" button. The importer automatically becomes the owner; the app navigates into the imported model after a successful load
+- On import, foreign collaborators and their responses are dropped. The original owner's response is remapped to the current user — the importer becomes the sole voter. Synthesis is stripped and `status: 'synthesized'` reverts to `'open'` so the imported model recomputes against its new voter set
+- `_originRef` is preserved across import (provenance stays with the file), and an `imported` entry is appended to `_changeLog`
+- Export Attribution copy in the global Settings modal is no longer marked "(future feature)" — the fields are wired into the export envelope
+
+### Architecture
+- New `AHPExportBundle` and `AHPExportEnvelope` types in `src/types/ahp.ts`
+- `createModelFromBundle` promoted from a `FirestoreAdapter`-only method to the `StorageAdapter` interface. `LocalStorageAdapter` gains an implementation that composes existing `createModel` / `addCollaborator` / `createResponse` / `saveSynthesis` calls. `FirestoreAdapter.createModelFromBundle` now inlines synthesis into the monolithic document (single write) using the same JSON-string serialization that `saveSynthesis` applies to nested arrays
+- `FirestoreAdapter.ModelBundle` is now a type alias for `AHPExportBundle` — `migration.ts` continues to work with a single-line `synthesis: null` addition
+- New `APP_VERSION` constant in `src/core/models/constants.ts`, stamped into the export envelope
+- New `src/storage/exportModel.ts` and `src/storage/importModel.ts` utilities keep export/import logic out of the adapters themselves
+- `ATTRIBUTION_KEY` exported from `AppSettingsModal.tsx` so the export utility imports the canonical constant instead of duplicating the string
+
+### Tests
+- New `src/__tests__/exportImport.test.ts` with four groups: schema round-trip, end-to-end local round-trip through `useAHP`, version/shape guard, and UID-remap + synthesis-strip behavior (8 tests)
+
 ## v0.6.2 (April 18, 2026)
 
 ### Fixed

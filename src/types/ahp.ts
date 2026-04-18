@@ -271,10 +271,35 @@ export interface SynthesisConfidenceThreshold {
   minCoverage: number;
 }
 
+// ─── Export / Import ─────────────────────────────────────────
+
+export interface AHPExportBundle {
+  meta: ModelDoc;
+  structure: StructureDoc;
+  collaborators: CollaboratorDoc[];
+  responses: Record<string, ResponseDoc>;
+  synthesis: SynthesisBundle | null;
+}
+
+export interface AHPExportEnvelope {
+  spertAhpExportVersion: 1;
+  appVersion: string;
+  exportedAt: number;
+  sourceModelId: string;
+  _exportedBy: { name: string; identifier: string } | null;
+  _storageRef: string;
+  meta: ModelDoc;
+  structure: StructureDoc;
+  collaborators: CollaboratorDoc[];
+  responses: Record<string, ResponseDoc>;
+  synthesis: SynthesisBundle | null;
+}
+
 // ─── Storage Interface ───────────────────────────────────────
 
 export interface StorageAdapter {
   createModel(modelId: string, metaDoc: ModelDoc, structureDoc: StructureDoc): Promise<void>;
+  createModelFromBundle(modelId: string, bundle: AHPExportBundle): Promise<void>;
   getModel(modelId: string): Promise<{ meta: ModelDoc; structure: StructureDoc } | null>;
   updateModel(modelId: string, partialMeta: Partial<ModelDoc>): Promise<void>;
   deleteModel(modelId: string): Promise<void>;

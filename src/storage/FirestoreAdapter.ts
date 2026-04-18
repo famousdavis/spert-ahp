@@ -22,6 +22,7 @@ import type {
   ModelIndexEntry,
   ComparisonMap,
   SynthesisBundle,
+  AHPExportBundle,
 } from '../types/ahp';
 
 const CURRENT_SCHEMA_VERSION = 1;
@@ -120,14 +121,10 @@ function unwrapStructure(d: FirestoreModelDoc): StructureDoc {
 }
 
 /**
- * Bundle type for single-shot creation (used by migration).
+ * Bundle type for single-shot creation (used by migration and import).
+ * Alias to AHPExportBundle so migration.ts's existing import keeps working.
  */
-export interface ModelBundle {
-  meta: ModelDoc;
-  structure: StructureDoc;
-  collaborators: CollaboratorDoc[];
-  responses: Record<string, ResponseDoc>;
-}
+export type ModelBundle = AHPExportBundle;
 
 export class FirestoreAdapter implements StorageAdapter {
   constructor(private uid: string) {}
@@ -163,10 +160,11 @@ export class FirestoreAdapter implements StorageAdapter {
   }
 
   /**
-   * Migration-specific entry point. Writes meta + structure + embedded
-   * collaborators + responses in a single setDoc.
+   * Single-shot creation from a bundle. Used by migration (local→cloud) and
+   * by import (JSON file → storage). Inlines embedded collaborators,
+   * responses, and — if present — synthesis into the monolithic document.
    */
-  async createModelFromBundle(modelId: string, bundle: ModelBundle): Promise<void> {
+  async createModelFromBundle(modelId: string, bundle: AHPExportBundle): Promise<void> {
     const now = Date.now();
     // Build members map from the collaborators array
     const members: Record<string, CollaboratorRole> = {};
@@ -175,6 +173,29 @@ export class FirestoreAdapter implements StorageAdapter {
     }
     // Ensure creator is owner
     if (!members[this.uid]) members[this.uid] = 'owner';
+
+    // Inline synthesis with nested-array JSON-string serialization
+    // (mirrors saveSynthesis; Firestore does not support nested arrays).
+    let synthesisField: FirestoreModelDoc['synthesis'] = null;
+    if (bundle.synthesis && bundle.meta.publishedSynthesisId) {
+      const summary = { ...bundle.synthesis.summary } as SynthesisBundle['summary'];
+      const individual = { ...bundle.synthesis.individual } as SynthesisBundle['individual'];
+      const serializedSummary = JSON.parse(JSON.stringify(summary)) as Record<string, unknown>;
+      if (summary.localPriorities) {
+        serializedSummary['localPriorities'] = JSON.stringify(summary.localPriorities);
+      }
+      const serializedIndividual = JSON.parse(JSON.stringify(individual)) as Record<string, unknown>;
+      if (individual.individualLocalPriorities) {
+        serializedIndividual['individualLocalPriorities'] =
+          JSON.stringify(individual.individualLocalPriorities);
+      }
+      synthesisField = {
+        synthesisId: bundle.meta.publishedSynthesisId,
+        summary: serializedSummary as unknown as SynthesisBundle['summary'],
+        individual: serializedIndividual as unknown as SynthesisBundle['individual'],
+        diagnostics: bundle.synthesis.diagnostics,
+      };
+    }
 
     const payload: FirestoreModelDoc = {
       owner: this.uid,
@@ -194,7 +215,7 @@ export class FirestoreAdapter implements StorageAdapter {
       structureVersion: bundle.structure.structureVersion,
       collaborators: bundle.collaborators,
       responses: bundle.responses,
-      synthesis: null,
+      synthesis: synthesisField,
       _originRef: bundle.meta._originRef,
       _changeLog: bundle.meta._changeLog ?? [],
       schemaVersion: CURRENT_SCHEMA_VERSION,
