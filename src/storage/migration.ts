@@ -101,6 +101,7 @@ export async function uploadLocalToCloud(
         structure: data.structure,
         collaborators: rewrittenCollabs,
         responses,
+        synthesis: null,
       });
 
       result.uploaded++;

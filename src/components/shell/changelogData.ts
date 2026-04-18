@@ -9,6 +9,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.0',
+    date: '2026-04-18',
+    sections: [
+      {
+        title: 'JSON Export/Import',
+        items: [
+          'Export any decision as a portable JSON file from the Settings tab — the envelope includes meta, structure, collaborators, responses, and the published synthesis, plus an attribution block pulled from the app-level Export Attribution fields',
+          'Import a previously exported decision from the Setup screen via a new "Import from JSON" button. The importer automatically becomes the owner and the app navigates into the imported model on success',
+          'On import, foreign collaborators and their responses are dropped. The original owner\'s response is remapped to the current user, synthesis is stripped, and models that were "synthesized" revert to "open" so they recompute against the new single-user voter set',
+          'Provenance is preserved: `_originRef` carries forward and an `imported` entry is appended to the change log',
+          'Export Attribution in the global Settings modal is now wired into exports (no longer marked "future feature")',
+        ],
+      },
+      {
+        title: 'Architecture',
+        items: [
+          '`createModelFromBundle` promoted from a FirestoreAdapter-only method to the `StorageAdapter` interface, with a LocalStorageAdapter implementation composed from existing CRUD methods',
+          'New `AHPExportBundle` and `AHPExportEnvelope` types, plus `APP_VERSION` constant stamped into every export',
+          'Export and import logic lives in standalone utilities (`src/storage/exportModel.ts`, `src/storage/importModel.ts`) rather than inside the adapters',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          'New `exportImport.test.ts` suite covering schema round-trip, end-to-end local round-trip, version guard, and UID-remap + synthesis-strip behavior (8 tests)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.6.2',
     date: '2026-04-18',
     sections: [
