@@ -1,28 +1,32 @@
-import { useMemo } from 'react';
-import { rankJudgments, findTransitivityViolations } from '../../core/math/consistency';
 import { SAATY_SCALE } from '../../core/models/constants';
 import type {
   CompletionTier,
-  ComparisonMap,
   ConsistencyResult,
+  RankedJudgment,
   StructuredItem,
+  TransitivityViolation,
 } from '../../types/ahp';
 
 // Change with care — see v0.6.0 design notes. Marginal CR improvements are
 // nonlinear; surfacing more rows tends to mislead users about post-fix behavior.
 const ADVISOR_MAX_ROWS = 3;
 
+type Mode = 'importance' | 'preference';
+
 interface ConsistencyAdvisorProps {
   n: number;
   tier: CompletionTier;
-  comparisons: ComparisonMap;
   items: StructuredItem[];
   cr: ConsistencyResult | null;
+  ranked: RankedJudgment[];
+  violations: TransitivityViolation[];
   onReconsider: (i: number, j: number) => void;
+  mode?: Mode;
 }
 
-function formatSaaty(value: number, mode: 'importance' | 'preference' = 'importance'): string {
-  if (!Number.isFinite(value) || value <= 0) return 'Equally important';
+function formatSaaty(value: number, mode: Mode): string {
+  const fallback = mode === 'preference' ? 'Equally preferred' : 'Equally important';
+  if (!Number.isFinite(value) || value <= 0) return fallback;
 
   const reciprocal = value < 1;
   const intensity = reciprocal ? 1 / value : value;
@@ -40,19 +44,13 @@ function formatRatio(value: number): string {
 export default function ConsistencyAdvisor({
   n,
   tier,
-  comparisons,
   items,
   cr,
+  ranked,
+  violations,
   onReconsider,
+  mode = 'importance',
 }: ConsistencyAdvisorProps) {
-  // Recomputes on every comparison change (tick-level). Acceptable for v0.6.0 under
-  // expected n; debounce candidate for a future pass.
-  const ranked = useMemo(() => rankJudgments(n, comparisons, tier), [n, comparisons, tier]);
-  const violations = useMemo(
-    () => findTransitivityViolations(n, comparisons, tier),
-    [n, comparisons, tier],
-  );
-
   if (!cr || cr.cr === null || cr.cr <= 0.10) return null;
 
   const totalPairs = (n * (n - 1)) / 2;
@@ -62,6 +60,7 @@ export default function ConsistencyAdvisor({
 
   const isEstimate = tier === 2 || tier === 3;
   const progressPct = Math.min(cr.cr / 0.10, 1) * 100;
+  const moreX = mode === 'preference' ? 'more preferred than' : 'more important than';
 
   const topViolations = violations.slice(0, Math.min(2, violations.length));
 
@@ -94,12 +93,12 @@ export default function ConsistencyAdvisor({
                   </div>
                   <div className="text-xs text-gray-600 dark:text-gray-400">
                     <span className="text-gray-500 dark:text-gray-500">Your answer:</span>{' '}
-                    <span className="font-medium text-gray-700 dark:text-gray-300">{formatSaaty(r.currentValue)}</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">{formatSaaty(r.currentValue, mode)}</span>
                     <span className="text-gray-400 dark:text-gray-600"> ({formatRatio(r.currentValue)})</span>
                   </div>
                   <div className="text-xs text-gray-600 dark:text-gray-400">
                     <span className="text-gray-500 dark:text-gray-500">Implied by your other answers:</span>{' '}
-                    <span className="font-medium text-gray-700 dark:text-gray-300">{formatSaaty(r.impliedValue)}</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">{formatSaaty(r.impliedValue, mode)}</span>
                     <span className="text-gray-400 dark:text-gray-600"> ({formatRatio(r.impliedValue)})</span>
                   </div>
                   <div className="text-xs text-amber-700 dark:text-amber-400">
@@ -135,13 +134,13 @@ export default function ConsistencyAdvisor({
                   className="rounded-md bg-white dark:bg-gray-800 p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed"
                 >
                   You said <span className="font-medium">{labelI}</span> is{' '}
-                  <span className="font-medium">{formatRatio(v.iToJ)}</span> more important than{' '}
+                  <span className="font-medium">{formatRatio(v.iToJ)}</span> {moreX}{' '}
                   <span className="font-medium">{labelJ}</span>, and{' '}
                   <span className="font-medium">{labelJ}</span> is{' '}
-                  <span className="font-medium">{formatRatio(v.jToK)}</span> more important than{' '}
+                  <span className="font-medium">{formatRatio(v.jToK)}</span> {moreX}{' '}
                   <span className="font-medium">{labelK}</span>. This implies{' '}
                   <span className="font-medium">{labelI}</span> should be about{' '}
-                  <span className="font-medium">{formatRatio(v.iToKImplied)}</span> more important than{' '}
+                  <span className="font-medium">{formatRatio(v.iToKImplied)}</span> {moreX}{' '}
                   <span className="font-medium">{labelK}</span>, but you said{' '}
                   <span className="font-medium">{formatRatio(v.iToKActual)}</span>.
                 </li>

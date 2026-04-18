@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.1',
+    date: '2026-04-18',
+    sections: [
+      {
+        title: 'Consistency Advisor Polish',
+        items: [
+          'Advisor language now matches the layer — "more preferred" on alternative layers, "more important" on the decision-factor layer (previously always said "important")',
+          'New ghost indicator on each comparison slider: a muted downward arrow and dashed line mark where the slider would need to be for your judgments to be consistent — visual only, does not move the thumb',
+          'Advisor computation now lifted to the panel so the spotlight and the ghost indicator share one source of truth',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-04-17',
     sections: [
