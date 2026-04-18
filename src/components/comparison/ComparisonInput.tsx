@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { SAATY_SCALE } from '../../core/models/constants';
 
 interface ComparisonInputProps {
@@ -7,9 +8,44 @@ interface ComparisonInputProps {
   onChange: (value: number) => void;
   mode?: 'importance' | 'preference';
   criterionLabel?: string;
+  isFocused?: boolean;
+  registerRef?: (el: HTMLDivElement | null) => void;
 }
 
-export default function ComparisonInput({ itemA, itemB, value, onChange, mode = 'importance', criterionLabel }: ComparisonInputProps) {
+export default function ComparisonInput({
+  itemA,
+  itemB,
+  value,
+  onChange,
+  mode = 'importance',
+  criterionLabel,
+  isFocused = false,
+  registerRef,
+}: ComparisonInputProps) {
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [showRing, setShowRing] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) return;
+
+    const el = rowRef.current;
+    if (el) {
+      const reduced = typeof window !== 'undefined'
+        && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    }
+
+    setShowRing(true);
+    const timer = setTimeout(() => setShowRing(false), 2000);
+    return () => clearTimeout(timer);
+  }, [isFocused]);
+
+  const setRow = (el: HTMLDivElement | null) => {
+    rowRef.current = el;
+    registerRef?.(el);
+  };
+
   // Slider direction: negative = drag left = prefer left item (itemA),
   //                    positive = drag right = prefer right item (itemB).
   const storedToSlider = (stored: number | undefined): number => {
@@ -58,7 +94,10 @@ export default function ComparisonInput({ itemA, itemB, value, onChange, mode = 
   });
 
   return (
-    <div className={`p-3 rounded-lg border ${isSet ? 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800' : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900'}`}>
+    <div
+      ref={setRow}
+      className={`p-3 rounded-lg border transition-all ${isSet ? 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800' : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900'}${showRing ? ' ring-2 ring-amber-400 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900' : ''}`}
+    >
       <div className="flex justify-between text-sm mb-1 gap-4">
         <span className={`max-w-[45%] ${sliderValue < 0 ? 'font-bold text-blue-600 dark:text-blue-400' : 'font-medium text-gray-500 dark:text-gray-400'}`}>{itemA}</span>
         <span className={`max-w-[45%] text-right ${sliderValue > 0 ? 'font-bold text-amber-600 dark:text-amber-400' : 'font-medium text-gray-500 dark:text-gray-400'}`}>{itemB}</span>

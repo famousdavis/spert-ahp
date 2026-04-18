@@ -80,17 +80,16 @@ export default function ResultsPanel({ ahpState, userId }: ResultsPanelProps) {
             (comparisons changed — re-run synthesis)
           </span>
         )}
+        {isOwner && (
+          <button
+            onClick={() => ahpState.runSynthesis()}
+            disabled={ahpState.loading}
+            className="ml-auto text-sm px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+          >
+            {ahpState.loading ? 'Computing...' : 'Re-run Synthesis'}
+          </button>
+        )}
       </div>
-
-      {isOwner && (
-        <button
-          onClick={() => ahpState.runSynthesis()}
-          disabled={ahpState.loading}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
-        >
-          {ahpState.loading ? 'Computing...' : 'Re-run Synthesis'}
-        </button>
-      )}
 
       {canSeeAggregated ? (
         <>

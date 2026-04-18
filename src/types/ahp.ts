@@ -126,6 +126,26 @@ export interface RepairSuggestion {
   expectedCRImprovement: number;
 }
 
+export interface RankedJudgment {
+  i: number;
+  j: number;
+  currentValue: number;
+  impliedValue: number;
+  crIfChanged: number;
+  crDelta: number;
+}
+
+export interface TransitivityViolation {
+  i: number;
+  j: number;
+  k: number;
+  iToJ: number;
+  jToK: number;
+  iToKActual: number;
+  iToKImplied: number;
+  violationMagnitude: number;
+}
+
 // ─── Aggregation ─────────────────────────────────────────────
 
 export interface VoterComparisons {
