@@ -1,5 +1,33 @@
 # SPERT® AHP — Changelog
 
+## v0.6.0 (April 17, 2026)
+
+### Consistency Advisor
+- New inline advisor below the CR badge (Compare tab) when CR exceeds 10%, ranking the judgments most likely to be driving inconsistency
+- Each spotlight row shows the user's current answer, the eigenvector-implied value, and the expected CR drop if reconsidered
+- Reconsider button scrolls to and highlights the relevant comparison with an amber ring; respects `prefers-reduced-motion`
+- Row cap of 3 with a small-n floor (`totalPairs - 1`) so the advisor never surfaces every judgment as a top offender
+- Collapsible transitivity explanations (Complete tier only), in plain English, for triples whose stored values materially contradict their implied product
+- CR progress bar renders current ratio against the 10% target
+
+### Compare Tab Scroll Context
+- Layer tabs are sticky at the top of the Compare panel while scrolling
+- New collapsible "Reminder: decision goal" below the sticky tab row
+- Context banners above each comparison section name the goal (criteria layer) or criterion (alternatives layer) being ranked against
+
+### Results Chart
+- `PriorityChart` rewritten with CSS bars — long factor/alternative labels now wrap cleanly instead of overflowing or colliding with adjacent bars
+- Kept the original props interface; both consumers (ResultsPanel, VoterBreakdownCard) need no changes
+- Re-run Synthesis button demoted to a small outlined secondary control in the Results header row
+
+### Copy
+- Consistency badge tooltip strings simplified — partial-comparison modes (tier 2/3) now read "CR estimate — based on partial comparisons"; Complete tier reads "Full confidence CR"
+- Internal `Harker` references retained in code comments documenting the math; no longer surfaced in user-facing UI
+
+### Math Layer
+- New `rankJudgments(n, comparisons, tier)` — ranks observed judgments by CR-improvement potential; powers the Consistency Advisor spotlight
+- New `findTransitivityViolations(n, comparisons, tier)` — detects (i, j, k) triples where stored values contradict the implied product; tier-gated internally and filters near-zero (<0.1 log magnitude) and out-of-scale (>9 or <1/9 implied) cases
+
 ## v0.5.0 (April 14, 2026)
 
 ### Individual Voter Breakdown

@@ -1,10 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import ComparisonInput from './ComparisonInput';
 import ComparisonMatrix from './ComparisonMatrix';
 import ConsistencyBadge from './ConsistencyBadge';
+import ConsistencyAdvisor from './ConsistencyAdvisor';
 import { useMatrix } from '../../hooks/useMatrix';
 import { selectComparisonsForTier } from '../../core/math/matrix';
 import type { UseAHPReturn, CompletionTier, StructuredItem, ComparisonMap } from '../../types/ahp';
+
+const FOCUS_CLEAR_MS = 2100;
 
 interface AlternativeLayerProps {
   criterionId: string;
@@ -34,11 +37,36 @@ function AlternativeLayer({ criterionId, criterionLabel, alternativeItems, tier,
 
   const pairs = selectComparisonsForTier(n, tier, 0);
 
+  const [focusedPair, setFocusedPair] = useState<string | null>(null);
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+
+  const onReconsider = useCallback((i: number, j: number) => {
+    if (focusTimer.current) clearTimeout(focusTimer.current);
+    const key = `${i},${j}`;
+    setFocusedPair(null);
+    // Schedule on next frame so the effect in ComparisonInput re-fires even when
+    // the same pair is reconsidered twice in quick succession.
+    requestAnimationFrame(() => {
+      setFocusedPair(key);
+      focusTimer.current = setTimeout(() => setFocusedPair(null), FOCUS_CLEAR_MS);
+    });
+  }, []);
+
   return (
     <div className="space-y-6">
       {matrix.cr && (
         <ConsistencyBadge cr={matrix.cr} tier={tier} />
       )}
+
+      <ConsistencyAdvisor
+        n={n}
+        tier={tier}
+        comparisons={matrix.comparisons}
+        items={alternativeItems}
+        cr={matrix.cr}
+        onReconsider={onReconsider}
+      />
 
       {!matrix.converged && (
         <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md text-sm text-amber-700 dark:text-amber-400">
@@ -68,20 +96,31 @@ function AlternativeLayer({ criterionId, criterionLabel, alternativeItems, tier,
       )}
 
       <div className="space-y-3">
+        <div className="border-l-4 border-slate-400 dark:border-slate-500 bg-slate-50 dark:bg-slate-800/40 px-3 py-2 text-sm text-slate-700 dark:text-slate-300">
+          Ranking alternatives with respect to: <span className="font-medium">{criterionLabel}</span>
+        </div>
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Pairwise comparisons ({Object.keys(matrix.comparisons).length}/{pairs.length} completed)
         </h3>
-        {pairs.map(([i, j]) => (
-          <ComparisonInput
-            key={`${i},${j}`}
-            itemA={alternativeItems[i]?.label ?? `Item ${i}`}
-            itemB={alternativeItems[j]?.label ?? `Item ${j}`}
-            value={matrix.comparisons[`${i},${j}`]}
-            onChange={(val) => matrix.setComparison(i, j, val)}
-            mode="preference"
-            criterionLabel={criterionLabel}
-          />
-        ))}
+        {pairs.map(([i, j]) => {
+          const key = `${i},${j}`;
+          return (
+            <ComparisonInput
+              key={key}
+              itemA={alternativeItems[i]?.label ?? `Item ${i}`}
+              itemB={alternativeItems[j]?.label ?? `Item ${j}`}
+              value={matrix.comparisons[key]}
+              onChange={(val) => matrix.setComparison(i, j, val)}
+              mode="preference"
+              criterionLabel={criterionLabel}
+              isFocused={focusedPair === key}
+              registerRef={(el) => {
+                if (el) rowRefs.current.set(key, el);
+                else rowRefs.current.delete(key);
+              }}
+            />
+          );
+        })}
       </div>
 
       {matrix.weights && (
@@ -138,6 +177,20 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
     onSave,
   });
 
+  const [criteriaFocusedPair, setCriteriaFocusedPair] = useState<string | null>(null);
+  const criteriaFocusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const criteriaRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+
+  const onReconsiderCriteria = useCallback((i: number, j: number) => {
+    if (criteriaFocusTimer.current) clearTimeout(criteriaFocusTimer.current);
+    const key = `${i},${j}`;
+    setCriteriaFocusedPair(null);
+    requestAnimationFrame(() => {
+      setCriteriaFocusedPair(key);
+      criteriaFocusTimer.current = setTimeout(() => setCriteriaFocusedPair(null), FOCUS_CLEAR_MS);
+    });
+  }, []);
+
   if (!ahpState.modelId) {
     return <p className="text-gray-500 dark:text-gray-400">Create a decision first in the Setup tab.</p>;
   }
@@ -160,7 +213,8 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 flex-wrap">
+      {/* Sticky band — bleed matches main p-6 in App.tsx; update together. */}
+      <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 -mx-6 px-6 py-2 flex gap-2 flex-wrap">
         <button
           onClick={() => setActiveLayer('criteria')}
           className={`px-3 py-1.5 text-sm rounded-md ${
@@ -186,11 +240,29 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
         ))}
       </div>
 
+      {ahpState.model?.goal && (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+            Reminder: decision goal
+          </summary>
+          <p className="mt-2 text-gray-700 dark:text-gray-300">{ahpState.model.goal}</p>
+        </details>
+      )}
+
       {isCriteriaLayer && (
         <>
           {criteriaMatrix.cr && (
             <ConsistencyBadge cr={criteriaMatrix.cr} tier={tier} />
           )}
+
+          <ConsistencyAdvisor
+            n={criteriaItems.length}
+            tier={tier}
+            comparisons={criteriaMatrix.comparisons}
+            items={criteriaItems}
+            cr={criteriaMatrix.cr}
+            onReconsider={onReconsiderCriteria}
+          />
 
           {!criteriaMatrix.converged && (
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md text-sm text-amber-700 dark:text-amber-400">
@@ -220,18 +292,30 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
           )}
 
           <div className="space-y-3">
+            <div className="border-l-4 border-slate-400 dark:border-slate-500 bg-slate-50 dark:bg-slate-800/40 px-3 py-2 text-sm text-slate-700 dark:text-slate-300">
+              Ranking decision factors — how important is each for:{' '}
+              <span className="font-medium">{ahpState.model?.goal ?? '(goal)'}</span>
+            </div>
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Pairwise comparisons ({Object.keys(criteriaMatrix.comparisons).length}/{pairs.length} completed)
             </h3>
-            {pairs.map(([i, j]) => (
-              <ComparisonInput
-                key={`${i},${j}`}
-                itemA={criteriaItems[i]?.label ?? `Item ${i}`}
-                itemB={criteriaItems[j]?.label ?? `Item ${j}`}
-                value={criteriaMatrix.comparisons[`${i},${j}`]}
-                onChange={(val) => criteriaMatrix.setComparison(i, j, val)}
-              />
-            ))}
+            {pairs.map(([i, j]) => {
+              const key = `${i},${j}`;
+              return (
+                <ComparisonInput
+                  key={key}
+                  itemA={criteriaItems[i]?.label ?? `Item ${i}`}
+                  itemB={criteriaItems[j]?.label ?? `Item ${j}`}
+                  value={criteriaMatrix.comparisons[key]}
+                  onChange={(val) => criteriaMatrix.setComparison(i, j, val)}
+                  isFocused={criteriaFocusedPair === key}
+                  registerRef={(el) => {
+                    if (el) criteriaRowRefs.current.set(key, el);
+                    else criteriaRowRefs.current.delete(key);
+                  }}
+                />
+              );
+            })}
           </div>
 
           {criteriaMatrix.weights && (

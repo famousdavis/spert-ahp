@@ -9,6 +9,43 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.0',
+    date: '2026-04-17',
+    sections: [
+      {
+        title: 'Consistency Advisor',
+        items: [
+          'New inline advisor appears below the CR badge whenever CR exceeds 10%, ranking the judgments most likely to be driving inconsistency',
+          'Each spotlight row shows your current answer, the value implied by your other judgments, and the expected CR drop if you reconsider',
+          'Reconsider button scrolls to the relevant comparison and highlights it with an amber ring (respects prefers-reduced-motion)',
+          'Collapsible transitivity section (Complete tier only) explains inconsistencies in plain English when present',
+          'CR progress bar shows your current ratio against the 10% target',
+        ],
+      },
+      {
+        title: 'Compare Tab Scroll Context',
+        items: [
+          'Layer tabs are now sticky at the top while scrolling through long comparison lists',
+          'New collapsible "Reminder: decision goal" below the tab row keeps intent in reach',
+          'Context banners above each comparison section name the goal (criteria layer) or criterion (alternatives layer) you are ranking against',
+        ],
+      },
+      {
+        title: 'Results Chart Rewrite',
+        items: [
+          'PriorityChart replaced with a custom CSS component — long factor/alternative labels now wrap cleanly instead of overflowing the axis',
+          'Demoted the Re-run Synthesis button to a small outlined control in the header row',
+        ],
+      },
+      {
+        title: 'Copy',
+        items: [
+          'Consistency badge tooltip language simplified — partial-comparison modes now read "CR estimate — based on partial comparisons" instead of the previous technical label',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-04-14',
     sections: [
