@@ -9,6 +9,45 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.0',
+    date: '2026-04-20',
+    sections: [
+      {
+        title: 'Security',
+        items: [
+          'Second security audit pass, focused on the auth and cloud-storage subsystem. All sign-out paths now route through a single centralized helper so in-memory decision state, per-user PII, and storage mode reset atomically on every sign-out',
+          'Sign-out now clears in-memory decision state. Previously the useAHP reducer state (modelId, model, structure, collaborators, responses, synthesis) survived sign-out — a second user on the same browser saw the prior user\'s decision title, criteria, and responses across Settings / Compare / Results until they manually closed the model. Fix: a module-level signOutCleanupRegistry bridges the provider-nesting gap so AuthContext can reach App-scoped state',
+          'Export Attribution PII now cleared on sign-out. The ahp/exportAttribution localStorage key stores a user\'s name and identifier (email or student ID) and is embedded in every exported JSON. Previously never cleared — a second user would see the prior user\'s identity pre-filled in the Export Attribution inputs and silently embedded in any export they produced',
+          'Cross-user Firestore contamination via migration closed. The local→cloud migration previously constructed a fresh LocalStorageAdapter and read raw localStorage, which is shared across users on a browser. If User A\'s local decisions remained (local mode is intentionally a shared-browser workspace), User B initiating migration could have uploaded A\'s decisions into B\'s Firestore account. Migration now reads from the in-context adapter via useStorage(), guarded by an instanceof check',
+          'ToS-mismatch sign-out now does full cleanup. The version-mismatch forced-sign-out previously skipped the same cleanup the user-initiated sign-out did. All three sign-out entry points now route through a single zero-argument performSignOutWithCleanup helper: clears consent, PII, hasUploaded flag, runs registry (state + mode reset), then calls firebaseSignOut',
+          'Storage mode now resets to "local" on every sign-out path. Previously reset by only two of the three paths',
+          'Local consent flag (ahp/tos-accepted-version) now cleared on every sign-out. Previously cleared only on the version-mismatch path',
+          'ahp/hasUploadedToCloud cleared on sign-out so the next user gets the migration prompt. Previously persisted forever after the first user\'s migration, suppressing the prompt for any subsequent user on the same browser',
+          'ToS Firestore write now blocks local acceptance on failure. Previously writeConsentRecord swallowed errors and unconditionally set ahp/tos-accepted-version, so on Firestore failure the local flag claimed acceptance while no Firestore record existed — other SPERT apps would re-prompt. Now writeConsentRecord throws on failure; AuthContext surfaces a user-visible signInError banner, leaves ahp/tos-write-pending set so the next sign-in retries, and performs a full sign-out. The local flag is only set after the Firestore write has succeeded',
+          'Popup sign-in error handling overhauled. auth/popup-closed-by-user and auth/cancelled-popup-request now return silently (they no longer produce a generic "Sign-in failed" banner when the user just closed the popup or double-clicked). auth/popup-blocked now surfaces a specific "Sign-in was blocked by your browser. Please allow popups for this site and try again." banner. The write-pending flag is moved inside the try block and the catch clears it so a failed popup cannot orphan the flag',
+          'Orphaned modelId on cloud → local switch fixed. Switching from cloud to local mode while viewing a cloud-only decision previously left stale Title/Goal rendered in memory with no working save. Now the mode transition dispatches RESET — user lands cleanly on the Setup tab\'s local decisions list',
+          'Unhandled rejection in saveComparisons during sign-out race. If the user clicked Sign Out while a save was in flight, the Firestore PERMISSION_DENIED surfaced as an unhandled promise rejection. Now wrapped in try/catch with a user-visible "Save failed — you may have been signed out" error',
+        ],
+      },
+      {
+        title: 'Added',
+        items: [
+          'Signed-in + local chip state. The auth chip previously had only two branches — a user signed in but in local mode fell through to the signed-out pill, rendering a misleading "Sign in" prompt to an already-authenticated user. New AccountPopoverLocal component handles the signed-in + local state with its own pill (avatar + name + lock icon) and a popover offering two actions: "Switch to Cloud Storage" (navigation-only; opens Settings so the upload/skip prompt appears in the visible Storage section) and "Sign Out"',
+          'signInError / clearSignInError on AuthContext surface sign-in errors from AuthContext (where A7 and popup-blocked errors originate) to StorageSection (which owns the error banner). Rendered as signInError ?? error in the existing red banner',
+        ],
+      },
+      {
+        title: 'Infrastructure',
+        items: [
+          'signOutCleanupRegistry module bridges the AuthProvider → StorageProvider → App provider nesting so AuthContext sign-out can reach App-scoped useAHP state and StorageProvider\'s mode preference without prop drilling or hoisting',
+          'performSignOutWithCleanup zero-argument helper is the single entry point for every sign-out',
+          'peekWritePending and clearWritePending helpers on consent.ts. peekWritePending reads the pending flag without consuming it; clearWritePending removes only the pending flag without touching other consent state',
+          '7 new tests covering the cleanup registry and the centralized sign-out helper. All 170 existing + new tests pass',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.7.3',
     date: '2026-04-18',
     sections: [

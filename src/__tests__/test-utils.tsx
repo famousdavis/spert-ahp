@@ -30,6 +30,8 @@ export function TestProvidersWithAdapter({
         user: null,
         loading: false,
         firebaseAvailable: false,
+        signInError: null,
+        clearSignInError: () => {},
         signInWithMicrosoft: async () => {},
         signInWithGoogle: async () => {},
         signOut: async () => {},

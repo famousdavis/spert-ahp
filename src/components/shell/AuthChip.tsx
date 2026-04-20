@@ -2,15 +2,18 @@ import { useRef, useState } from 'react';
 import { useAuth, getFirstName } from '../../contexts/AuthContext';
 import { useStorage } from '../../contexts/StorageContext';
 import AccountPopover from './AccountPopover';
+import AccountPopoverLocal from './AccountPopoverLocal';
 
 interface AuthChipProps {
-  /** Click handler for the signed-out branch (opens sign-in / settings). Ignored when signed in — the signed-in chip opens its own popover. */
-  onClick: () => void;
+  /** Opens the App Settings modal. Used by:
+   *  - the signed-out pill (click to open settings → sign-in buttons)
+   *  - the signed-in-local popover's "Switch to Cloud Storage" action */
+  onOpenSettings: () => void;
 }
 
 const BRAND = '#0070f3';
 
-export default function AuthChip({ onClick }: AuthChipProps) {
+export default function AuthChip({ onOpenSettings }: AuthChipProps) {
   const { user, firebaseAvailable, loading } = useAuth();
   const { mode } = useStorage();
   const anchorRef = useRef<HTMLButtonElement>(null);
@@ -20,7 +23,7 @@ export default function AuthChip({ onClick }: AuthChipProps) {
   if (!firebaseAvailable) return null;
   if (loading) return null;
 
-  // Signed in + cloud mode: avatar + name | cloud icon  (whole pill is one button)
+  // Signed in + cloud: avatar + name | cloud icon → AccountPopover
   if (user && mode === 'cloud') {
     const firstName = getFirstName(user);
     const initial = (firstName[0] ?? '?').toUpperCase();
@@ -57,11 +60,53 @@ export default function AuthChip({ onClick }: AuthChipProps) {
     );
   }
 
-  // Local / signed out: lock icon + "Local only" | "Sign in"  (single button)
+  // Signed in + local: avatar + name | lock icon → AccountPopoverLocal (F2(d))
+  if (user && mode === 'local') {
+    const firstName = getFirstName(user);
+    const initial = (firstName[0] ?? '?').toUpperCase();
+    return (
+      <>
+        <button
+          ref={anchorRef}
+          type="button"
+          onClick={() => setPopoverOpen((v) => !v)}
+          aria-haspopup="dialog"
+          aria-expanded={popoverOpen}
+          aria-label="Account menu"
+          className="flex items-center rounded-full border border-gray-300 dark:border-gray-600 overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+        >
+          <span className="flex items-center gap-1.5 pl-1 pr-2 py-0.5">
+            <span
+              className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-white text-[11px] font-medium"
+              style={{ backgroundColor: BRAND }}
+            >
+              {initial}
+            </span>
+            <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100">{firstName}</span>
+          </span>
+          <span className="border-l border-gray-300 dark:border-gray-600 px-2 py-1 text-gray-500 dark:text-gray-400">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </span>
+        </button>
+        {popoverOpen && (
+          <AccountPopoverLocal
+            anchorRef={anchorRef}
+            onClose={() => setPopoverOpen(false)}
+            onOpenSettings={onOpenSettings}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Signed out: lock icon + "Local only" | "Sign in"
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={onOpenSettings}
       aria-label="Sign in"
       className="flex items-center rounded-full border border-gray-300 dark:border-gray-600 overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
     >

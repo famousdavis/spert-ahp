@@ -174,7 +174,20 @@ export function useAHP(userId: string): UseAHPReturn {
       dispatch({ type: 'SET_RESPONSE', payload: { userId, response: nextResponse } });
     }
 
-    await storage.saveComparisons(state.modelId, userId, layer, comparisons);
+    try {
+      await storage.saveComparisons(state.modelId, userId, layer, comparisons);
+    } catch (err) {
+      // A3: a sign-out race or permission error surfaces here instead of
+      // becoming an unhandled rejection. The optimistic local dispatch
+      // above already reflected the user's edit; we just surface the
+      // failure and stop.
+      console.error('saveComparisons failed:', err);
+      dispatch({
+        type: 'SET_ERROR',
+        payload: 'Save failed — you may have been signed out. Reload to continue.',
+      });
+      return;
+    }
 
     if (state.model?.synthesisStatus === 'current') {
       await storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });

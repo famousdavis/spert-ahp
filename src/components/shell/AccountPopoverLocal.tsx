@@ -2,23 +2,31 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth, getFirstName } from '../../contexts/AuthContext';
 import { performSignOutWithCleanup } from '../../lib/performSignOutWithCleanup';
 
-interface AccountPopoverProps {
+interface AccountPopoverLocalProps {
   anchorRef: React.RefObject<HTMLButtonElement>;
   onClose: () => void;
+  onOpenSettings: () => void;
 }
 
 /**
- * Lightweight account popover anchored beneath the AuthChip.
- * Shows the signed-in user's name + email and a Sign Out button that
- * routes through the centralized sign-out helper.
+ * Popover for the signed-in + local-mode chip state (F2(d)).
+ *
+ * Offers two actions:
+ *   - "Switch to Cloud Storage": navigates to App Settings only. Does NOT
+ *     call switchMode directly; the upload/keep prompt lives inside
+ *     StorageSection and must be shown while the user is looking at it.
+ *   - "Sign Out": routes through the centralized performSignOutWithCleanup.
  */
-export default function AccountPopover({ anchorRef, onClose }: AccountPopoverProps) {
+export default function AccountPopoverLocal({
+  anchorRef,
+  onClose,
+  onOpenSettings,
+}: AccountPopoverLocalProps) {
   const { user } = useAuth();
   const panelRef = useRef<HTMLDivElement>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
 
-  // Compute fixed position from the anchor rect on mount.
   useEffect(() => {
     const el = anchorRef.current;
     if (!el) return;
@@ -26,7 +34,6 @@ export default function AccountPopover({ anchorRef, onClose }: AccountPopoverPro
     setPos({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) });
   }, [anchorRef]);
 
-  // Escape to close (no-op while signing out).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (signingOut) return;
@@ -36,7 +43,6 @@ export default function AccountPopover({ anchorRef, onClose }: AccountPopoverPro
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose, signingOut]);
 
-  // Outside click to close (no-op while signing out).
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (signingOut) return;
@@ -48,6 +54,11 @@ export default function AccountPopover({ anchorRef, onClose }: AccountPopoverPro
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [onClose, signingOut, anchorRef]);
+
+  const handleSwitchToCloud = () => {
+    onOpenSettings();
+    onClose();
+  };
 
   const handleSignOut = async () => {
     if (signingOut) return;
@@ -81,22 +92,22 @@ export default function AccountPopover({ anchorRef, onClose }: AccountPopoverPro
           <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</div>
         )}
       </div>
-      <div className="flex justify-end gap-2 px-4 py-3">
+      <div className="flex flex-col gap-2 px-4 py-3">
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleSwitchToCloud}
           disabled={signingOut}
-          className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50"
+          className="w-full px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Cancel
+          Switch to Cloud Storage
         </button>
         <button
           type="button"
           onClick={handleSignOut}
           disabled={signingOut}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {signingOut ? 'Signing out…' : 'Sign out'}
+          {signingOut ? 'Signing out…' : 'Sign Out'}
         </button>
       </div>
     </div>

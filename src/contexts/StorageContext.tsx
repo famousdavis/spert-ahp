@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import { LocalStorageAdapter } from '../storage/LocalStorageAdapter';
 import { FirestoreAdapter } from '../storage/FirestoreAdapter';
 import { isFirebaseAvailable } from '../lib/firebase';
+import { registerSignOutCleanup } from '../lib/signOutCleanupRegistry';
 import { useAuth } from './AuthContext';
 import type { StorageAdapter } from '../types/ahp';
 
@@ -45,6 +46,17 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   // Lazy initializer — avoids new instance on every render (GanttApp lesson 2)
   const [adapter, setAdapter] = useState<StorageAdapter>(() => new LocalStorageAdapter());
   const [ready, setReady] = useState(false);
+
+  // Register the mode-reset cleanup with the centralized sign-out registry.
+  // Runs exactly once per mount — the callback writes to localStorage and
+  // updates persistedMode so effectiveMode recomputes to 'local' on the
+  // next render following sign-out.
+  useEffect(() => {
+    registerSignOutCleanup(() => {
+      localStorage.setItem(MODE_KEY, 'local');
+      setPersistedMode('local');
+    });
+  }, []);
 
   useEffect(() => {
     // CRITICAL: Hold ready = false while auth is resolving if cloud is preferred.
