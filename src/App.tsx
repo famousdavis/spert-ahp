@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AppHeader from './components/shell/AppHeader';
 import AppFooter from './components/shell/AppFooter';
 import AboutPage from './components/shell/AboutPage';
@@ -11,6 +11,8 @@ import AppSettingsModal from './components/settings/AppSettingsModal';
 import { useUserId } from './hooks/useUserId';
 import { useAHP } from './hooks/useAHP';
 import { useTheme } from './hooks/useTheme';
+import { useStorage } from './contexts/StorageContext';
+import { registerSignOutCleanup } from './lib/signOutCleanupRegistry';
 
 const TABS = ['Setup', 'Compare', 'Results', 'Settings'] as const;
 type TabName = typeof TABS[number];
@@ -21,7 +23,30 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const userId = useUserId();
   const ahpState = useAHP(userId);
+  const { mode } = useStorage();
   useTheme(); // Initialize theme on mount
+
+  // Register the in-memory state reset with the centralized sign-out registry.
+  // The ref indirection keeps the registered callback stable while still
+  // dispatching through the latest closeModel identity.
+  const closeModelRef = useRef(ahpState.closeModel);
+  useEffect(() => {
+    closeModelRef.current = ahpState.closeModel;
+  }, [ahpState.closeModel]);
+  useEffect(() => {
+    registerSignOutCleanup(() => closeModelRef.current());
+  }, []);
+
+  // C4: on cloud→local mode transition, close any open cloud model so the
+  // UI doesn't dead-end with a stale modelId that the LocalStorageAdapter
+  // can't serve. Depends on `mode` (the transition trigger) and
+  // `ahpState.closeModel` (memoized with empty deps in useAHP, so stable).
+  useEffect(() => {
+    if (mode === 'local' && ahpState.modelId) {
+      ahpState.closeModel();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, ahpState.closeModel]);
 
   const isTab = (TABS as readonly string[]).includes(activePage);
 

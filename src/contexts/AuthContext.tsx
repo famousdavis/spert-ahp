@@ -9,7 +9,6 @@ import {
 import {
   onAuthStateChanged,
   signInWithPopup,
-  signOut as firebaseSignOut,
   OAuthProvider,
   GoogleAuthProvider,
   type User,
@@ -22,15 +21,19 @@ import {
   hasAcceptedCurrentTos,
   recordLocalAcceptance,
   setWritePending,
+  clearWritePending,
   consumeWritePending,
-  clearLocalConsent,
+  peekWritePending,
 } from '../lib/consent';
+import { performSignOutWithCleanup } from '../lib/performSignOutWithCleanup';
 import ConsentModal from '../components/shell/ConsentModal';
 
 export interface AuthContextType {
   user: User | null;
   loading: boolean;
   firebaseAvailable: boolean;
+  signInError: string | null;
+  clearSignInError: () => void;
   signInWithMicrosoft: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -40,7 +43,8 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 /**
  * Write or update the consent record at users/{uid} in Firestore.
- * Non-blocking on error — log and let the user through.
+ * Throws on Firestore failure so the caller can keep TOS_WRITE_PENDING
+ * set and surface an error to the user (A7 fix).
  *
  * Three cases:
  *  (a) New user → full setDoc with appId
@@ -49,35 +53,31 @@ export const AuthContext = createContext<AuthContextType | null>(null);
  */
 async function writeConsentRecord(user: User): Promise<void> {
   if (!db) return;
-  try {
-    const userRef = doc(db, 'users', user.uid);
-    const snap = await getDoc(userRef);
+  const userRef = doc(db, 'users', user.uid);
+  const snap = await getDoc(userRef);
 
-    if (!snap.exists()) {
-      await setDoc(userRef, {
-        acceptedAt: serverTimestamp(),
-        tosVersion: TOS_VERSION,
-        privacyPolicyVersion: TOS_VERSION,
-        appId: APP_ID,
-        authProvider: user.providerData[0]?.providerId ?? 'unknown',
-      });
-    } else {
-      const data = snap.data();
-      if (data['tosVersion'] !== TOS_VERSION) {
-        await setDoc(
-          userRef,
-          {
-            acceptedAt: serverTimestamp(),
-            tosVersion: TOS_VERSION,
-            privacyPolicyVersion: TOS_VERSION,
-            authProvider: user.providerData[0]?.providerId ?? 'unknown',
-          },
-          { merge: true },
-        );
-      }
+  if (!snap.exists()) {
+    await setDoc(userRef, {
+      acceptedAt: serverTimestamp(),
+      tosVersion: TOS_VERSION,
+      privacyPolicyVersion: TOS_VERSION,
+      appId: APP_ID,
+      authProvider: user.providerData[0]?.providerId ?? 'unknown',
+    });
+  } else {
+    const data = snap.data();
+    if (data['tosVersion'] !== TOS_VERSION) {
+      await setDoc(
+        userRef,
+        {
+          acceptedAt: serverTimestamp(),
+          tosVersion: TOS_VERSION,
+          privacyPolicyVersion: TOS_VERSION,
+          authProvider: user.providerData[0]?.providerId ?? 'unknown',
+        },
+        { merge: true },
+      );
     }
-  } catch (err) {
-    console.error('Failed to write consent record:', (err as { code?: string }).code ?? 'unknown');
   }
 }
 
@@ -125,8 +125,11 @@ function writeUserProfile(user: User): void {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(isFirebaseAvailable);
+  const [signInError, setSignInError] = useState<string | null>(null);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<'google' | 'microsoft' | null>(null);
+
+  const clearSignInError = useCallback(() => setSignInError(null), []);
 
   useEffect(() => {
     if (!auth) return;
@@ -138,11 +141,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const isPendingWrite = consumeWritePending();
+      // A7: peek only — do not consume the flag until the Firestore
+      // consent write has succeeded.
+      const isPendingWrite = peekWritePending();
 
       if (isPendingWrite) {
         // Branch A: user just accepted consent and signed in
-        await writeConsentRecord(firebaseUser);
+        try {
+          await writeConsentRecord(firebaseUser);
+        } catch (err) {
+          console.error('Consent record write failed:', (err as { code?: string }).code ?? 'unknown');
+          setSignInError('Could not finalize cloud access — please try signing in again.');
+          await performSignOutWithCleanup();
+          setLoading(false);
+          return;
+        }
+        consumeWritePending();
         writeUserProfile(firebaseUser);
         recordLocalAcceptance();
         setUser(firebaseUser);
@@ -160,12 +174,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (isValid) {
             writeUserProfile(firebaseUser);
             setUser(firebaseUser);
+            setLoading(false);
           } else {
             // Version mismatch or no record — sign out and force re-consent
-            clearLocalConsent();
-            if (auth) await firebaseSignOut(auth);
+            await performSignOutWithCleanup();
+            setLoading(false);
           }
-          setLoading(false);
         }
       }
     });
@@ -176,11 +190,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initiateSignIn = useCallback(async (provider: 'google' | 'microsoft'): Promise<void> => {
     if (!auth) return;
 
-    // Set pending write flag BEFORE auth fires so the popup round-trip
-    // can be detected by onAuthStateChanged.
-    setWritePending();
-
     try {
+      // D1: set pending-write flag INSIDE the try so any pre-popup throw
+      // can be cleaned up by the catch block below.
+      setWritePending();
+
       if (provider === 'google') {
         const googleProvider = new GoogleAuthProvider();
         await signInWithPopup(auth, googleProvider);
@@ -192,12 +206,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // onAuthStateChanged handles the rest (Branch A)
     } catch (err) {
       const error = err as { code?: string };
+      // Prevent a stale pending flag from contaminating the next auth event.
+      clearWritePending();
       if (
-        error.code !== 'auth/popup-closed-by-user' &&
-        error.code !== 'auth/cancelled-popup-request'
+        error.code === 'auth/popup-closed-by-user' ||
+        error.code === 'auth/cancelled-popup-request'
       ) {
-        console.error('Sign-in error:', error.code ?? 'unknown');
+        // User dismissed or double-clicked — silent return.
+        return;
       }
+      if (error.code === 'auth/popup-blocked') {
+        setSignInError(
+          'Sign-in was blocked by your browser. Please allow popups for this site and try again.',
+        );
+        throw err;
+      }
+      console.error('Sign-in error:', error.code ?? 'unknown');
       // Re-throw so StorageSection can surface the error to the user
       throw err;
     }
@@ -232,8 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleSignOut = useCallback(async (): Promise<void> => {
-    if (!auth) return;
-    await firebaseSignOut(auth);
+    await performSignOutWithCleanup();
   }, []);
 
   return (
@@ -242,6 +265,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         firebaseAvailable: isFirebaseAvailable,
+        signInError,
+        clearSignInError,
         signInWithMicrosoft: () => handleSignInRequest('microsoft'),
         signInWithGoogle: () => handleSignInRequest('google'),
         signOut: handleSignOut,

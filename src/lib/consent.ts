@@ -37,6 +37,20 @@ export function consumeWritePending(): boolean {
   return pending;
 }
 
+/** Read the write-pending flag without clearing it. */
+export function peekWritePending(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(LS_TOS_WRITE_PENDING) === 'true';
+}
+
+/** Clear the write-pending flag without touching any other consent state.
+ *  Used by the popup-failure catch path so a failed sign-in does not leave
+ *  the flag lingering for the next auth event. */
+export function clearWritePending(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(LS_TOS_WRITE_PENDING);
+}
+
 /** Clear all local consent state — used on consent-version mismatch sign-out. */
 export function clearLocalConsent(): void {
   if (typeof window === 'undefined') return;

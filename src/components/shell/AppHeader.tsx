@@ -17,7 +17,7 @@ export default function AppHeader({ onAboutClick, onOpenSettings }: AppHeaderPro
         <div className="flex items-center gap-2">
           <GearButton onClick={onOpenSettings} />
           <HeaderThemeToggle />
-          <AuthChip onClick={onOpenSettings} />
+          <AuthChip onOpenSettings={onOpenSettings} />
           <button
             onClick={onAboutClick}
             className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"

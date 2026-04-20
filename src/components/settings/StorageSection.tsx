@@ -5,6 +5,7 @@ import { useSession } from '../../hooks/useSession';
 import { LocalStorageAdapter } from '../../storage/LocalStorageAdapter';
 import { FirestoreAdapter } from '../../storage/FirestoreAdapter';
 import { uploadLocalToCloud, hasUploadedToCloud } from '../../storage/migration';
+import { performSignOutWithCleanup } from '../../lib/performSignOutWithCleanup';
 
 type MigrationState =
   | { status: 'idle' }
@@ -26,8 +27,15 @@ type MigrationState =
  *   - The "Cloud selected while signed out" intermediate state is unreachable
  */
 export default function StorageSection() {
-  const { mode, switchMode, isCloudAvailable } = useStorage();
-  const { user, loading: authLoading, signInWithGoogle, signInWithMicrosoft, signOut } = useAuth();
+  const { adapter, mode, switchMode, isCloudAvailable } = useStorage();
+  const {
+    user,
+    loading: authLoading,
+    signInWithGoogle,
+    signInWithMicrosoft,
+    signInError,
+    clearSignInError,
+  } = useAuth();
   const { userId: localUserId } = useSession();
 
   const [busy, setBusy] = useState(false);
@@ -50,25 +58,33 @@ export default function StorageSection() {
       return;
     }
 
+    // C3: read via the in-context adapter, not a fresh LocalStorageAdapter.
+    // Only meaningful when mode === 'local' (the adapter IS a LocalStorageAdapter).
+    if (!(adapter instanceof LocalStorageAdapter)) {
+      switchMode('cloud');
+      return;
+    }
+
     // Count local models to decide whether to offer migration
-    const local = new LocalStorageAdapter();
-    const models = await local.listModels();
+    const models = await adapter.listModels();
     if (models.length === 0) {
       switchMode('cloud');
       return;
     }
 
     setMigration({ status: 'confirm', localCount: models.length });
-  }, [user, switchMode]);
+  }, [user, switchMode, adapter]);
 
   const handleMigrate = useCallback(async () => {
     if (!user) return;
+    // C3: migration must read from the in-context adapter. Defensive guard
+    // ensures the adapter is the local one before proceeding.
+    if (!(adapter instanceof LocalStorageAdapter)) return;
     setBusy(true);
     setMigration({ status: 'migrating' });
     try {
-      const local = new LocalStorageAdapter();
       const cloud = new FirestoreAdapter(user.uid);
-      const result = await uploadLocalToCloud(local, cloud, localUserId, user.uid);
+      const result = await uploadLocalToCloud(adapter, cloud, localUserId, user.uid);
       setMigration({ status: 'done', uploaded: result.uploaded, skipped: result.skipped });
       switchMode('cloud');
     } catch (e) {
@@ -76,7 +92,7 @@ export default function StorageSection() {
     } finally {
       setBusy(false);
     }
-  }, [user, localUserId, switchMode]);
+  }, [user, localUserId, switchMode, adapter]);
 
   const handleSkipMigration = useCallback(() => {
     localStorage.setItem('ahp/hasUploadedToCloud', 'true');
@@ -88,6 +104,7 @@ export default function StorageSection() {
     async (provider: 'google' | 'microsoft') => {
       setBusy(true);
       setError(null);
+      clearSignInError();
       try {
         if (provider === 'google') {
           await signInWithGoogle();
@@ -95,26 +112,27 @@ export default function StorageSection() {
           await signInWithMicrosoft();
         }
       } catch (e) {
+        // auth/popup-blocked is surfaced via signInError from AuthContext.
+        // Other errors show in the local banner.
         setError((e as Error).message);
       } finally {
         setBusy(false);
       }
     },
-    [signInWithGoogle, signInWithMicrosoft],
+    [signInWithGoogle, signInWithMicrosoft, clearSignInError],
   );
 
   const handleSignOut = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
-      await signOut();
-      switchMode('local');
+      await performSignOutWithCleanup();
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
-  }, [signOut, switchMode]);
+  }, []);
 
   if (!isCloudAvailable) {
     return (
@@ -246,9 +264,9 @@ export default function StorageSection() {
         </div>
       )}
 
-      {error && (
+      {(signInError ?? error) && (
         <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-xs text-red-900 dark:text-red-200">
-          {error}
+          {signInError ?? error}
         </div>
       )}
     </div>
