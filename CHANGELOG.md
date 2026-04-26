@@ -1,5 +1,11 @@
 # SPERT® AHP — Changelog
 
+## v0.8.2 (April 25, 2026)
+
+### Fixed
+- **Shared collaborators' judgments now reach synthesis.** Critical bug: `FirestoreAdapter.addCollaborator` wrote the new collaborator into the `collaborators` array and `members` map but never initialized a `responses[userId]` slot for them. When the collaborator opened the model and tried to save a pairwise judgment, `saveComparisons` threw `Response for {userId} not found`, which surfaced to the user as the misleading *"Save failed — you may have been signed out"* error. From the owner's side, no shared collaborator's data ever landed in Firestore, so synthesis silently aggregated only the owner's responses — producing global priority scores that ignored every student/teammate while the "comparisons changed — re-run synthesis" banner kept firing without changing the result. Fix: `addCollaborator` now writes an empty response slot at the same time as adding the collaborator.
+- **Self-heal for legacy shared models.** Existing models that were shared before v0.8.2 still have collaborators with no response slot. `useAHP.loadModel` now detects this — when the current user is in the collaborators array but has no response slot, it lazy-creates one. Firestore rules permit editors to write `responses.{theirOwnUid}` since `responses` is not in the blocked-fields list, so the heal works for owners and editors alike. No manual remediation needed — every existing collaborator gets fixed the next time they open a shared model.
+
 ## v0.8.1 (April 25, 2026)
 
 ### Fixed

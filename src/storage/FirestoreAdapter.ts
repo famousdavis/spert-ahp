@@ -276,11 +276,28 @@ export class FirestoreAdapter implements StorageAdapter {
     const existing = d.collaborators ?? [];
     const filtered = existing.filter((c) => c.userId !== collaboratorDoc.userId);
     filtered.push(collaboratorDoc);
-    await updateDoc(docRef(modelId), {
+
+    // Create an empty response slot for the new collaborator. Without this,
+    // saveComparisons throws "Response for {userId} not found" the first time
+    // the collaborator submits a judgment. Preserve any existing slot (e.g.,
+    // re-adding a previously-removed collaborator who already has responses).
+    const update: Record<string, unknown> = {
       collaborators: filtered,
       [`members.${collaboratorDoc.userId}`]: collaboratorDoc.role,
       updatedAt: Date.now(),
-    });
+    };
+    if (!d.responses?.[collaboratorDoc.userId]) {
+      update[`responses.${collaboratorDoc.userId}`] = {
+        userId: collaboratorDoc.userId,
+        status: 'in_progress',
+        criteriaMatrix: {},
+        alternativeMatrices: {},
+        cr: {},
+        lastModifiedAt: Date.now(),
+        structureVersionAtSubmission: 0,
+      };
+    }
+    await updateDoc(docRef(modelId), update);
   }
 
   async getCollaborators(modelId: string): Promise<CollaboratorDoc[]> {

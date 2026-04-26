@@ -115,6 +115,23 @@ export function useAHP(userId: string): UseAHPReturn {
     const collabs = await storage.getCollaborators(modelId);
     dispatch({ type: 'SET_COLLABORATORS', payload: collabs });
 
+    // Self-heal: if the current user is a collaborator without a response slot,
+    // create one. Covers legacy shared models where addCollaborator did not
+    // initialize the slot. Firestore rules permit editors to write
+    // responses.{theirOwnUid}, so this works for both owners and editors.
+    const isMember = collabs.some((c) => c.userId === userId);
+    if (isMember) {
+      const ownResponse = await storage.getResponse(modelId, userId);
+      if (!ownResponse) {
+        const fresh = createResponseDoc(userId);
+        try {
+          await storage.createResponse(modelId, fresh);
+        } catch (err) {
+          console.error('Failed to self-heal response slot:', err);
+        }
+      }
+    }
+
     for (const collab of collabs) {
       const response = await storage.getResponse(modelId, collab.userId);
       if (response) {
