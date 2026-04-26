@@ -221,6 +221,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         throw err;
       }
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        setSignInError(
+          'An account with this email already exists using a different sign-in method. Please use the other provider (Google or Microsoft) — whichever you signed in with the first time.',
+        );
+        return;
+      }
       console.error('Sign-in error:', error.code ?? 'unknown');
       // Re-throw so StorageSection can surface the error to the user
       throw err;

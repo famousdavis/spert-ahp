@@ -1,5 +1,10 @@
 # SPERT® AHP — Changelog
 
+## v0.8.1 (April 25, 2026)
+
+### Fixed
+- **Clearer error message when an email is already registered with a different sign-in provider.** Users who previously signed in with Google and then tried Microsoft (or vice versa) on the same email saw an unhandled `auth/account-exists-with-different-credential` error fall through as a generic failure. The popup catch in `AuthContext.initiateSignIn` now surfaces a plain-English banner: *"An account with this email already exists using a different sign-in method. Please use the other provider (Google or Microsoft) — whichever you signed in with the first time."* No account-linking work — just a targeted error case so the user knows which button to press.
+
 ## v0.8.0 (April 20, 2026)
 
 ### Security

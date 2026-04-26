@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.1',
+    date: '2026-04-25',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Clearer error message when an email is already registered with a different sign-in provider. Users who previously signed in with Google and then tried Microsoft (or vice versa) on the same email saw an unhandled auth/account-exists-with-different-credential error fall through as a generic failure. The sign-in flow now surfaces a plain-English banner telling the user to use whichever provider they signed in with the first time',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-04-20',
     sections: [
