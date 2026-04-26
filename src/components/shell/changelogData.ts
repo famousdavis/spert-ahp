@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.2',
+    date: '2026-04-25',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Critical: Shared collaborators\' judgments now reach synthesis. Previously, addCollaborator wrote the collaborator into the members map but never initialized a response slot for them, so saveComparisons threw "Response not found" the first time they tried to save a judgment — surfaced to the collaborator as a misleading "Save failed — you may have been signed out" error. From the owner\'s side, no shared collaborator\'s data ever landed in Firestore, so synthesis silently aggregated only the owner\'s responses while the "comparisons changed — re-run synthesis" banner kept firing without changing the result. Fix: addCollaborator now creates the response slot at the same time as adding the collaborator',
+          'Self-heal for legacy shared models. Existing models that were shared before v0.8.2 had collaborators with no response slot. loadModel now detects this and lazy-creates the missing slot the next time the collaborator opens the model — no manual remediation needed',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.8.1',
     date: '2026-04-25',
     sections: [
