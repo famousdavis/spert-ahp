@@ -58,7 +58,7 @@ export default function AppSettingsModal({ open, onClose }: AppSettingsModalProp
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Settings</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cloud Storage</h2>
           <button
             onClick={onClose}
             aria-label="Close"
@@ -69,7 +69,7 @@ export default function AppSettingsModal({ open, onClose }: AppSettingsModalProp
         </div>
 
         <div className="p-6 space-y-6">
-          <StorageSection />
+          <StorageSection onClose={onClose} />
 
           <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-3">
             <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Export Attribution</h3>
@@ -85,7 +85,7 @@ export default function AppSettingsModal({ open, onClose }: AppSettingsModalProp
                   type="text"
                   value={attribution.name}
                   onChange={(e) => handleAttributionChange('name', e.target.value)}
-                  placeholder="e.g., Jane Doe"
+                  placeholder="e.g., Jane Smith"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -97,7 +97,7 @@ export default function AppSettingsModal({ open, onClose }: AppSettingsModalProp
                   type="text"
                   value={attribution.identifier}
                   onChange={(e) => handleAttributionChange('identifier', e.target.value)}
-                  placeholder="e.g., email or student ID"
+                  placeholder="e.g., student ID, email, or team name"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
