@@ -1,5 +1,13 @@
 # SPERT® AHP — Changelog
 
+## v0.9.1 (April 28, 2026)
+
+### Tests
+- **Regression coverage for the v0.8.2 collaborator-response-slot fix.** Added three tests on `LocalStorageAdapter` (verifies `addCollaborator` creates a response slot, that `saveComparisons` immediately works for a newly-added collaborator without an explicit `createResponse`, and that re-adding a collaborator preserves their existing judgments) plus one `useAHP` test that simulates legacy data with a missing slot and verifies `loadModel` self-heals by creating one. Without this coverage the v0.8.2 bug — shared collaborators' judgments silently failing to reach Firestore — could have regressed under refactoring.
+
+### Changed
+- **`LocalStorageAdapter.addCollaborator` now also initializes a response slot**, mirroring the v0.8.2 fix in `FirestoreAdapter`. Local mode is single-user in practice (per architecture), so this is not user-visible — but it lets the same regression contract test run identically against both adapters.
+
 ## v0.9.0 (April 28, 2026)
 
 ### Changed
