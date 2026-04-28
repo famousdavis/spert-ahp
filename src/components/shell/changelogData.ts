@@ -9,6 +9,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.1',
+    date: '2026-04-28',
+    sections: [
+      {
+        title: 'Tests',
+        items: [
+          'Regression coverage for the v0.8.2 collaborator-response-slot fix. Three new LocalStorageAdapter tests verify addCollaborator creates a response slot, saveComparisons works immediately for a newly-added collaborator, and re-adding a collaborator preserves their judgments. One new useAHP test simulates legacy data with a missing slot and verifies loadModel self-heals',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'LocalStorageAdapter.addCollaborator now also initializes a response slot, mirroring the v0.8.2 fix in FirestoreAdapter. Local mode is single-user in practice, so this is not user-visible — but it lets the same regression contract test run identically against both adapters',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-04-28',
     sections: [

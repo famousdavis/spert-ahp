@@ -108,6 +108,57 @@ describe('useAHP', () => {
     expect(result.current.model).toBeNull();
   });
 
+  // Regression: v0.8.2 — when a collaborator opens a shared model and finds
+  // no response slot for themselves (legacy data created before
+  // addCollaborator initialized the slot), loadModel must self-heal by
+  // creating one. Without this, their first saveComparisons throws.
+  // See PR #20.
+  it('loadModel self-heals a missing response slot for a current-user collaborator', async () => {
+    // Owner creates the model and adds a second collaborator
+    const { result: owner } = renderHook(() => useAHP('owner-user'), { wrapper: TestProviders });
+    let modelId: string | undefined;
+    await act(async () => {
+      modelId = await owner.current.createModel('Shared Decision', 'Goal');
+    });
+    await act(async () => {
+      await owner.current.storage.addCollaborator(modelId!, {
+        userId: 'student-user',
+        role: 'editor',
+        isVoting: true,
+      });
+    });
+
+    // Simulate legacy data: remove the student's response slot, leaving
+    // them in the collaborator list but with no response storage.
+    localStorage.removeItem(`ahp/models/${modelId}/responses/student-user`);
+    const responseListKey = `ahp/models/${modelId}/responseList`;
+    const list: string[] = JSON.parse(localStorage.getItem(responseListKey) ?? '[]');
+    localStorage.setItem(
+      responseListKey,
+      JSON.stringify(list.filter((u) => u !== 'student-user')),
+    );
+
+    // Sanity: the slot really is gone.
+    expect(await owner.current.storage.getResponse(modelId!, 'student-user')).toBeNull();
+
+    // Student opens the model — loadModel should self-heal.
+    const { result: student } = renderHook(() => useAHP('student-user'), { wrapper: TestProviders });
+    await act(async () => {
+      await student.current.loadModel(modelId!);
+    });
+
+    const healedResponse = await student.current.storage.getResponse(modelId!, 'student-user');
+    expect(healedResponse).not.toBeNull();
+    expect(healedResponse!.userId).toBe('student-user');
+
+    // And saveComparisons now works for them.
+    await act(async () => {
+      await student.current.saveComparisons('criteria', { '0,1': 4 });
+    });
+    const result = await student.current.storage.getComparisons(modelId!, 'student-user', 'criteria');
+    expect(result['0,1']).toBe(4);
+  });
+
   it('marks synthesis out_of_date when comparisons change after current', async () => {
     const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 

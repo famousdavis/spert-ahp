@@ -186,6 +186,47 @@ describe('LocalStorageAdapter', () => {
       expect(collabs[0]!.userId).toBe('user1');
       expect(collabs[1]!.userId).toBe('user2');
     });
+
+    // Regression: v0.8.2 — addCollaborator must initialize a response slot
+    // for the new collaborator. Without it, the collaborator's first
+    // saveComparisons call throws "Response not found" and their judgments
+    // never reach storage. See PR #20.
+    it('addCollaborator creates a response slot for the new collaborator', async () => {
+      await adapter.createModel('m1', createModelDoc('T', 'G', 'u'), createStructureDoc());
+      await adapter.addCollaborator('m1', createCollaboratorDoc('student1', 'editor', true));
+
+      const response = await adapter.getResponse('m1', 'student1');
+      expect(response).not.toBeNull();
+      expect(response!.userId).toBe('student1');
+      expect(response!.criteriaMatrix).toEqual({});
+      expect(response!.alternativeMatrices).toEqual({});
+    });
+
+    it('addCollaborator + saveComparisons works without explicit createResponse', async () => {
+      await adapter.createModel('m1', createModelDoc('T', 'G', 'u'), createStructureDoc());
+      await adapter.addCollaborator('m1', createCollaboratorDoc('student1', 'editor', true));
+
+      // The bug was that this threw "Response for student1 not found".
+      await expect(
+        adapter.saveComparisons('m1', 'student1', 'criteria', { '0,1': 3 }),
+      ).resolves.not.toThrow();
+
+      const result = await adapter.getComparisons('m1', 'student1', 'criteria');
+      expect(result['0,1']).toBe(3);
+    });
+
+    it('addCollaborator preserves an existing response slot on re-add', async () => {
+      await adapter.createModel('m1', createModelDoc('T', 'G', 'u'), createStructureDoc());
+      await adapter.addCollaborator('m1', createCollaboratorDoc('student1', 'editor', true));
+      await adapter.saveComparisons('m1', 'student1', 'criteria', { '0,1': 5 });
+
+      // Re-adding the same user (e.g., role change via add-then-update flow)
+      // must not wipe their existing judgments.
+      await adapter.addCollaborator('m1', createCollaboratorDoc('student1', 'editor', true));
+
+      const result = await adapter.getComparisons('m1', 'student1', 'criteria');
+      expect(result['0,1']).toBe(5);
+    });
   });
 
   // ─── Subscriptions (Phase 1 no-ops) ────────────────────────

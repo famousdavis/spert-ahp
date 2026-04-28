@@ -191,6 +191,29 @@ export class LocalStorageAdapter implements StorageAdapter {
       list.push(collaboratorDoc.userId);
       setJSON(listKey, list);
     }
+
+    // Mirror FirestoreAdapter: ensure a response slot exists so the new
+    // collaborator's first saveComparisons call doesn't throw "Response not
+    // found". Preserve any pre-existing slot.
+    const responseKey = key('models', modelId, 'responses', collaboratorDoc.userId);
+    if (getJSON<ResponseDoc>(responseKey) === null) {
+      const fresh: ResponseDoc = {
+        userId: collaboratorDoc.userId,
+        status: 'in_progress',
+        criteriaMatrix: {},
+        alternativeMatrices: {},
+        cr: {},
+        lastModifiedAt: Date.now(),
+        structureVersionAtSubmission: 0,
+      };
+      setJSON(responseKey, fresh);
+      const responseListKey = key('models', modelId, 'responseList');
+      const responseList = getJSON<string[]>(responseListKey) ?? [];
+      if (!responseList.includes(collaboratorDoc.userId)) {
+        responseList.push(collaboratorDoc.userId);
+        setJSON(responseListKey, responseList);
+      }
+    }
   }
 
   async getCollaborators(modelId: string): Promise<CollaboratorDoc[]> {
