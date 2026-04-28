@@ -9,6 +9,37 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.0',
+    date: '2026-04-28',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Unified auth chip behavior. All three chip states (signed-out, signed-in + local, signed-in + cloud) now open the same modal on click — no more positioned popovers. Sign-out is performed from inside the modal',
+          'Settings modal renamed to "Cloud Storage" to reflect that the modal is the single home for sign-in, storage mode, and account management',
+          'Sign-in buttons restyled to the SPERT Suite standard: blue branded buttons with native-color Google G and Microsoft four-square logos, side-by-side at normal viewport (wraps below ~320px)',
+          'Storage radio labels clarified: "Local" → "Local (browser only)" and "Cloud" → "Cloud (sync across devices)"',
+          'Identity card in the Cloud Storage modal updated to suite-standard layout: normalized display name on top, email below, red "Sign out" link on the right',
+          'Export Attribution placeholder text refreshed to better hint at acceptable identifier values ("e.g., student ID, email, or team name")',
+        ],
+      },
+      {
+        title: 'Added',
+        items: [
+          '"Keep using local storage" button visible only to signed-in users currently on local mode — provides a clear escape hatch from the modal without changing storage mode',
+          'Auto-close after sign-out. The Cloud Storage modal closes automatically when sign-out succeeds. If sign-out throws, the modal stays open so the error banner is visible',
+          'normalizeDisplayName utility (src/lib/userDisplay.ts) that swaps Microsoft Entra "Last, First MI" into natural reading order while passing other providers through unchanged',
+        ],
+      },
+      {
+        title: 'Removed',
+        items: [
+          'The two account popover components — both replaced by the unified Cloud Storage modal flow. The chip is now a pure trigger; all account actions live inside the modal',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.8.2',
     date: '2026-04-25',
     sections: [

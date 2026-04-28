@@ -1,5 +1,23 @@
 # SPERT® AHP — Changelog
 
+## v0.9.0 (April 28, 2026)
+
+### Changed
+- **Unified auth chip behavior.** All three chip states (signed-out, signed-in + local, signed-in + cloud) now open the same modal on click. The two positioned popovers (`AccountPopover`, `AccountPopoverLocal`) have been removed in favor of a single, predictable surface — the Cloud Storage modal — that handles sign-in, storage-mode selection, identity display, and sign-out from one place.
+- **Settings modal renamed to "Cloud Storage."** The modal title now reflects that the modal is the single home for sign-in, storage mode, and account management.
+- **Suite-standard sign-in buttons.** Sign-in buttons are now blue branded buttons with native-color Google G and Microsoft four-square logos, rendered side-by-side at normal viewport (wraps below ~320px). Replaces the previous white outlined buttons.
+- **Clearer storage radio labels.** "Local" → "Local (browser only)" and "Cloud" → "Cloud (sync across devices)".
+- **Suite-standard identity card.** When signed in, the modal shows a normalized display name on top, email below, and a red "Sign out" link on the right — replacing the previous inline "Signed in as Name · email" treatment.
+- **Export Attribution placeholders refreshed.** Name placeholder is now "e.g., Jane Smith"; identifier placeholder is now "e.g., student ID, email, or team name" to better hint at acceptable values.
+
+### Added
+- **"Keep using local storage" button.** Visible only to signed-in users currently on local mode — a clear escape hatch from the modal that closes it without changing storage mode. Not shown when on cloud mode.
+- **Auto-close after sign-out.** The Cloud Storage modal closes automatically when sign-out succeeds. If sign-out throws, the modal stays open so the error banner remains visible to the user.
+- **`normalizeDisplayName` utility (`src/lib/userDisplay.ts`).** Swaps Microsoft Entra "Last, First MI" into natural reading order; passes other providers through unchanged. Used by the new identity card in the Cloud Storage modal.
+
+### Removed
+- **`AccountPopover` and `AccountPopoverLocal` components.** Both replaced by the unified Cloud Storage modal flow. The auth chip is now a pure trigger; all account actions live inside the modal.
+
 ## v0.8.2 (April 25, 2026)
 
 ### Fixed
