@@ -1,5 +1,10 @@
 # SPERT® AHP — Changelog
 
+## v0.10.1 (May 1, 2026)
+
+### Changed
+- **About link moved from the right side of the header into the tab bar**, positioned to the right of the Settings tab. Matches the placement used by other SPERT Suite apps. The header right-side cluster is now **Theme → AuthChip**.
+
 ## v0.10.0 (May 1, 2026)
 
 ### Added

@@ -2,12 +2,11 @@ import { HeaderThemeToggle } from './ThemeToggle';
 import AuthChip from './AuthChip';
 
 interface AppHeaderProps {
-  onAboutClick: () => void;
   onOpenSettings: () => void;
   onNavigateHome: () => void;
 }
 
-export default function AppHeader({ onAboutClick, onOpenSettings, onNavigateHome }: AppHeaderProps) {
+export default function AppHeader({ onOpenSettings, onNavigateHome }: AppHeaderProps) {
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
       <div className="max-w-5xl mx-auto flex items-center justify-between">
@@ -34,12 +33,6 @@ export default function AppHeader({ onAboutClick, onOpenSettings, onNavigateHome
           </h1>
         </button>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onAboutClick}
-            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            About
-          </button>
           <HeaderThemeToggle />
           <AuthChip onOpenSettings={onOpenSettings} />
         </div>
