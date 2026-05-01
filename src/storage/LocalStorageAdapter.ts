@@ -84,11 +84,13 @@ export class LocalStorageAdapter implements StorageAdapter {
     setJSON(key('models', modelId, 'structure'), structureDoc);
 
     const index = getJSON<ModelIndexEntry[]>(key('modelIndex')) ?? [];
+    const nextOrder = index.reduce((max, e) => Math.max(max, e.order ?? -1), -1) + 1;
     index.push({
       modelId,
       title: metaDoc.title,
       status: metaDoc.status,
       createdAt: metaDoc.createdAt,
+      order: nextOrder,
     });
     setJSON(key('modelIndex'), index);
   }
@@ -166,7 +168,24 @@ export class LocalStorageAdapter implements StorageAdapter {
   }
 
   async listModels(): Promise<ModelIndexEntry[]> {
-    return getJSON<ModelIndexEntry[]>(key('modelIndex')) ?? [];
+    const entries = getJSON<ModelIndexEntry[]>(key('modelIndex')) ?? [];
+    return [...entries].sort((a, b) => {
+      const ao = a.order ?? Number.MAX_SAFE_INTEGER;
+      const bo = b.order ?? Number.MAX_SAFE_INTEGER;
+      if (ao !== bo) return ao - bo;
+      return a.createdAt - b.createdAt;
+    });
+  }
+
+  async reorderModels(orderedIds: string[]): Promise<void> {
+    const index = getJSON<ModelIndexEntry[]>(key('modelIndex')) ?? [];
+    const positionByModelId = new Map<string, number>();
+    orderedIds.forEach((id, idx) => positionByModelId.set(id, idx));
+    for (const entry of index) {
+      const pos = positionByModelId.get(entry.modelId);
+      if (pos !== undefined) entry.order = pos;
+    }
+    setJSON(key('modelIndex'), index);
   }
 
   // ─── Structure ───────────────────────────────────────────────────

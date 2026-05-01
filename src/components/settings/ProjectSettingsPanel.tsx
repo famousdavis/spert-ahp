@@ -20,11 +20,11 @@ function yyyymmdd(): string {
   return new Date().toISOString().slice(0, 10).replace(/-/g, '');
 }
 
-interface SettingsPanelProps {
+interface ProjectSettingsPanelProps {
   ahpState: UseAHPReturn;
 }
 
-export default function SettingsPanel({ ahpState }: SettingsPanelProps) {
+export default function ProjectSettingsPanel({ ahpState }: ProjectSettingsPanelProps) {
   const { user } = useAuth();
   const { mode } = useStorage();
   const [isExporting, setIsExporting] = useState(false);
@@ -70,7 +70,7 @@ export default function SettingsPanel({ ahpState }: SettingsPanelProps) {
 
   return (
     <div className="space-y-8 max-w-lg">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Settings</h2>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Project Settings</h2>
 
       <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2 text-sm">
         <div className="flex justify-between">

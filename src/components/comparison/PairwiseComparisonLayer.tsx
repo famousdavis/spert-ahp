@@ -67,6 +67,8 @@ export default function PairwiseComparisonLayer({
 }: PairwiseComparisonLayerProps) {
   const n = items.length;
   const pairs = selectComparisonsForTier(n, tier, 0);
+  const completedCount = Object.keys(matrix.comparisons).length;
+  const tierComplete = completedCount >= pairs.length;
 
   const [focusedPair, setFocusedPair] = useState<string | null>(null);
   const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,18 +91,20 @@ export default function PairwiseComparisonLayer({
 
   return (
     <div className="space-y-6">
-      {matrix.cr && <ConsistencyBadge cr={matrix.cr} tier={tier} />}
+      {tierComplete && matrix.cr && <ConsistencyBadge cr={matrix.cr} tier={tier} />}
 
-      <ConsistencyAdvisor
-        n={n}
-        tier={tier}
-        items={items}
-        cr={matrix.cr}
-        ranked={advisorData.ranked}
-        violations={advisorData.violations}
-        onReconsider={onReconsider}
-        mode={mode}
-      />
+      {tierComplete && (
+        <ConsistencyAdvisor
+          n={n}
+          tier={tier}
+          items={items}
+          cr={matrix.cr}
+          ranked={advisorData.ranked}
+          violations={advisorData.violations}
+          onReconsider={onReconsider}
+          mode={mode}
+        />
+      )}
 
       {!matrix.converged && (
         <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md text-sm text-amber-700 dark:text-amber-400">

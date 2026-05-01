@@ -9,6 +9,7 @@ import {
   where,
   getDocs,
   onSnapshot,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import {
@@ -76,6 +77,10 @@ interface FirestoreModelDoc {
   // Visibility controls
   resultsVisibility?: ModelDoc['resultsVisibility'];
 
+  // Display order in the saved-decisions list (0-indexed). Optional for v0.9.x
+  // legacy docs that predate the field; absent rows sort to the bottom.
+  order?: number;
+
   // Fingerprinting
   _originRef: string;
   _changeLog: ModelDoc['_changeLog'];
@@ -134,6 +139,7 @@ export class FirestoreAdapter implements StorageAdapter {
 
   async createModel(modelId: string, metaDoc: ModelDoc, structureDoc: StructureDoc): Promise<void> {
     const now = Date.now();
+    const nextOrder = await this.computeNextOrder();
     const payload: FirestoreModelDoc = {
       owner: this.uid,
       members: { [this.uid]: 'owner' },
@@ -153,11 +159,26 @@ export class FirestoreAdapter implements StorageAdapter {
       collaborators: [],
       responses: {},
       synthesis: null,
+      order: nextOrder,
       _originRef: metaDoc._originRef,
       _changeLog: metaDoc._changeLog ?? [],
       schemaVersion: CURRENT_SCHEMA_VERSION,
     };
     await setDoc(docRef(modelId), payload);
+  }
+
+  private async computeNextOrder(): Promise<number> {
+    const q = query(
+      collection(requireDb(), `${NAMESPACE}_projects`),
+      where(`members.${this.uid}`, 'in', ['owner', 'editor', 'viewer']),
+    );
+    const snap = await getDocs(q);
+    let maxOrder = -1;
+    snap.forEach((s) => {
+      const d = s.data() as FirestoreModelDoc;
+      if (typeof d.order === 'number' && d.order > maxOrder) maxOrder = d.order;
+    });
+    return maxOrder + 1;
   }
 
   /**
@@ -167,6 +188,7 @@ export class FirestoreAdapter implements StorageAdapter {
    */
   async createModelFromBundle(modelId: string, bundle: AHPExportBundle): Promise<void> {
     const now = Date.now();
+    const nextOrder = await this.computeNextOrder();
     // Build members map from the collaborators array
     const members: Record<string, CollaboratorRole> = {};
     for (const c of bundle.collaborators) {
@@ -202,6 +224,7 @@ export class FirestoreAdapter implements StorageAdapter {
       collaborators: bundle.collaborators,
       responses: bundle.responses,
       synthesis: synthesisField,
+      order: nextOrder,
       _originRef: bundle.meta._originRef,
       _changeLog: bundle.meta._changeLog ?? [],
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -243,9 +266,25 @@ export class FirestoreAdapter implements StorageAdapter {
         title: d.title,
         status: d.status,
         createdAt: d.createdAt,
+        order: typeof d.order === 'number' ? d.order : undefined,
       });
     });
+    // Sort: rows with `order` first (ascending), then rows without by createdAt asc
+    entries.sort((a, b) => {
+      const ao = a.order ?? Number.MAX_SAFE_INTEGER;
+      const bo = b.order ?? Number.MAX_SAFE_INTEGER;
+      if (ao !== bo) return ao - bo;
+      return a.createdAt - b.createdAt;
+    });
     return entries;
+  }
+
+  async reorderModels(orderedIds: string[]): Promise<void> {
+    const batch = writeBatch(requireDb());
+    orderedIds.forEach((id, idx) => {
+      batch.update(docRef(id), { order: idx, updatedAt: Date.now() });
+    });
+    await batch.commit();
   }
 
   // ─── Structure ───────────────────────────────────────────────

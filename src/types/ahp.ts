@@ -96,6 +96,9 @@ export interface ModelIndexEntry {
   title: string;
   status: ModelStatus;
   createdAt: number;
+  /** 0-indexed display order. Optional for backwards compat with v0.9.x rows;
+   *  entries without `order` sort to the bottom by createdAt. */
+  order?: number;
 }
 
 // ─── Math Results ────────────────────────────────────────────
@@ -329,6 +332,9 @@ export interface StorageAdapter {
   // Responses are delivered via the same model subscription (they're embedded in
   // the monolithic document), so subscribeResponses was removed in Phase 7.
   subscribeModel(modelId: string, callback: (data: unknown) => void): () => void;
+  /** Persists user-defined display order for the saved-decisions list.
+   *  `orderedIds` is the new ordering; each entry's index becomes its `order`. */
+  reorderModels(orderedIds: string[]): Promise<void>;
 }
 
 // ─── useAHP State ────────────────────────────────────────────

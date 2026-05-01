@@ -156,6 +156,7 @@ export default function ResultsPanel({ ahpState, userId }: ResultsPanelProps) {
             <VoterRadarChart
               criteria={structure?.criteria ?? []}
               individualPriorities={individualPriorities}
+              profileMap={profileMap}
             />
           )}
         </>

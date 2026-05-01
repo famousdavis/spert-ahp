@@ -9,6 +9,37 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.0',
+    date: '2026-05-01',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Drag-to-reorder for the Saved Decisions list. A new 6-dot grab handle lets you drag tiles into any order; the new ordering persists across sessions in both local and cloud modes via a new StorageAdapter.reorderModels method and an order field on each ModelIndexEntry',
+          'Export All button on the Decisions tab. Bundles every saved decision into a single JSON file for backup or migration; complements the existing single-decision export in Project Settings',
+          '"Project" tab for project-scoped settings. Sharing/collaborators, results visibility, disagreement thresholds, single-decision export, and the danger zone live here. The tab only appears when a decision is loaded; closing a decision while on the Project tab redirects to Decisions',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'Settings tab is now global-only — cloud storage and export attribution. The previous gear-icon modal has been retired in favor of a proper full-page Settings panel, matching every other SPERT Suite app',
+          '"Setup" tab renamed to "Decisions" to match what users actually do there',
+          'Header logo and SPERT® AHP wordmark are now clickable: click them to close any open decision and return to the Decisions list. Header right-side icon order standardized to About → Theme → AuthChip',
+          'Pairwise comparison intensity bars are now directly clickable. Hovering a bar previews the selection in full color (bars + label both update); clicking commits',
+          'Decision tiles got a UX overhaul matching the rest of the suite: tile body is the click target (no more separate Load button), trash icon replaces the Delete text button, and Import is in the list header alongside Export All',
+        ],
+      },
+      {
+        title: 'Fixed',
+        items: [
+          'Consistency Advisor and CR badge no longer appear after only 2 comparisons. Both are now suppressed until you complete every required pair for your tier — the Harker matrix estimation produces unreliable CR values on sparse data, so showing them early was misleading',
+          'Voter Radar Chart legend now displays voter display names instead of raw Firebase UIDs. Falls back to a truncated UID when no profile is available',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.9.2',
     date: '2026-05-01',
     sections: [
