@@ -1,5 +1,10 @@
 # SPERT® AHP — Changelog
 
+## v0.9.2 (May 1, 2026)
+
+### Added
+- **Branded favicon and header icon.** New `spert-favicon-ahp.png` (192×192 PNG, sunflower gold `#f59e0b` panels with rounded corners) is now the browser tab favicon and appears to the left of the SPERT® AHP wordmark in the header. A charcoal dark-mode variant (`spert-favicon-ahp-dark.png`) swaps in automatically when the dark theme is active.
+
 ## v0.9.1 (April 28, 2026)
 
 ### Tests

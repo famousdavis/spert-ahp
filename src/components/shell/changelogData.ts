@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.2',
+    date: '2026-05-01',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Branded favicon and header icon. New spert-favicon-ahp.png (192×192 PNG, sunflower gold #f59e0b panels with rounded corners) is now the browser tab favicon and appears to the left of the SPERT® AHP wordmark in the header. A charcoal dark-mode variant (spert-favicon-ahp-dark.png) swaps in automatically when the dark theme is active',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.9.1',
     date: '2026-04-28',
     sections: [

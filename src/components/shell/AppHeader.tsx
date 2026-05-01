@@ -11,9 +11,27 @@ export default function AppHeader({ onAboutClick, onOpenSettings }: AppHeaderPro
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
       <div className="max-w-5xl mx-auto flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-          SPERT<span className="text-gray-300 dark:text-gray-500 text-xs align-super">®</span> AHP
-        </h1>
+        <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/spert-favicon-ahp.png"
+            alt=""
+            width={28}
+            height={28}
+            className="rounded-[11%] shrink-0 block dark:hidden"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/spert-favicon-ahp-dark.png"
+            alt=""
+            width={28}
+            height={28}
+            className="rounded-[11%] shrink-0 hidden dark:block"
+          />
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            SPERT<span className="text-gray-300 dark:text-gray-500 text-xs align-super">®</span> AHP
+          </h1>
+        </div>
         <div className="flex items-center gap-2">
           <GearButton onClick={onOpenSettings} />
           <HeaderThemeToggle />
