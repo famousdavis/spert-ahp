@@ -97,13 +97,13 @@ export default function ComparisonPanel({ ahpState, userId }: ComparisonPanelPro
   });
 
   if (!ahpState.modelId) {
-    return <p className="text-gray-500 dark:text-gray-400">Create a decision first in the Setup tab.</p>;
+    return <p className="text-gray-500 dark:text-gray-400">Create a decision first in the Decisions tab.</p>;
   }
 
   if (!hasSufficientStructure) {
     return (
       <p className="text-gray-500 dark:text-gray-400">
-        Add at least 2 decision factors and 2 alternatives in Setup.
+        Add at least 2 decision factors and 2 alternatives in Decisions.
       </p>
     );
   }

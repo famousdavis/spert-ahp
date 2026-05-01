@@ -6,21 +6,20 @@ import ChangelogPage from './components/shell/ChangelogPage';
 import ModelSetup from './components/setup/ModelSetup';
 import ComparisonPanel from './components/comparison/ComparisonPanel';
 import ResultsPanel from './components/results/ResultsPanel';
-import SettingsPanel from './components/settings/SettingsPanel';
-import AppSettingsModal from './components/settings/AppSettingsModal';
+import ProjectSettingsPanel from './components/settings/ProjectSettingsPanel';
+import GlobalSettingsPanel from './components/settings/GlobalSettingsPanel';
 import { useUserId } from './hooks/useUserId';
 import { useAHP } from './hooks/useAHP';
 import { useTheme } from './hooks/useTheme';
 import { useStorage } from './contexts/StorageContext';
 import { registerSignOutCleanup } from './lib/signOutCleanupRegistry';
 
-const TABS = ['Setup', 'Compare', 'Results', 'Settings'] as const;
+const TABS = ['Decisions', 'Compare', 'Results', 'Project', 'Settings'] as const;
 type TabName = typeof TABS[number];
 type Page = TabName | 'About' | 'Changelog';
 
 export default function App() {
-  const [activePage, setActivePage] = useState<Page>('Setup');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activePage, setActivePage] = useState<Page>('Decisions');
   const userId = useUserId();
   const ahpState = useAHP(userId);
   const { mode } = useStorage();
@@ -48,18 +47,38 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, ahpState.closeModel]);
 
+  // If the user is on the Project tab and the model closes, redirect to
+  // Decisions. Guard must check BOTH conditions — never redirect away from
+  // any other tab.
+  useEffect(() => {
+    if (!ahpState.modelId && activePage === 'Project') {
+      setActivePage('Decisions');
+    }
+  }, [ahpState.modelId, activePage]);
+
   const isTab = (TABS as readonly string[]).includes(activePage);
+
+  // The Project tab only appears when a model is loaded. Compare and Results
+  // intentionally remain always-visible (they render gated messages internally).
+  const visibleTabs = TABS.filter((tab) => tab !== 'Project' || !!ahpState.modelId);
+
+  const handleNavigateHome = () => {
+    ahpState.closeModel();
+    setActivePage('Decisions');
+  };
 
   const renderContent = () => {
     switch (activePage) {
-      case 'Setup':
+      case 'Decisions':
         return <ModelSetup ahpState={ahpState} userId={userId} />;
       case 'Compare':
         return <ComparisonPanel ahpState={ahpState} userId={userId} />;
       case 'Results':
         return <ResultsPanel ahpState={ahpState} userId={userId} />;
+      case 'Project':
+        return <ProjectSettingsPanel ahpState={ahpState} />;
       case 'Settings':
-        return <SettingsPanel ahpState={ahpState} />;
+        return <GlobalSettingsPanel />;
       case 'About':
         return <AboutPage onNavigate={(p) => setActivePage(p as Page)} />;
       case 'Changelog':
@@ -71,11 +90,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-      <AppHeader onAboutClick={() => setActivePage('About')} onOpenSettings={() => setSettingsOpen(true)} />
+      <AppHeader
+        onAboutClick={() => setActivePage('About')}
+        onOpenSettings={() => setActivePage('Settings')}
+        onNavigateHome={handleNavigateHome}
+      />
 
       <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-5xl mx-auto flex px-6">
-          {TABS.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActivePage(tab)}
@@ -98,8 +121,6 @@ export default function App() {
       </main>
 
       <AppFooter onNavigate={(p) => setActivePage(p as Page)} />
-
-      <AppSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

@@ -1,5 +1,23 @@
 # SPERT® AHP — Changelog
 
+## v0.10.0 (May 1, 2026)
+
+### Added
+- **Drag-to-reorder for the Saved Decisions list.** A new 6-dot grab handle on each tile lets you drag decisions into any order; the new ordering persists across sessions in both local and cloud modes via a new `StorageAdapter.reorderModels` method and an `order` field on each `ModelIndexEntry`. Existing v0.9.x rows without an `order` field sort to the bottom by `createdAt` until reordered.
+- **Export All button** on the Decisions tab. Bundles every saved decision into a single JSON file for backup or migration; complements the existing single-decision export now living in Project Settings.
+- **"Project" tab for project-scoped settings.** Sharing/collaborators, results visibility, disagreement thresholds, single-decision export, and the danger zone live here. The tab only appears when a decision is loaded; closing a decision while on the Project tab redirects to Decisions.
+
+### Changed
+- **Settings tab is now global-only** — cloud storage and export attribution. The previous gear-icon modal has been retired in favor of a proper full-page Settings panel, matching every other SPERT Suite app.
+- **"Setup" tab renamed to "Decisions"** to match what users actually do there. The internal `Page` union and switch case are also renamed; the directory and `ModelSetup` component name are intentionally kept to preserve git history.
+- **Header logo and SPERT® AHP wordmark are now clickable** — clicking either closes any open decision and returns the user to the Decisions list. Header right-side icon order standardized to About → Theme → AuthChip; the gear button is removed.
+- **Pairwise comparison intensity bars are now directly clickable.** Hovering a bar previews the selection in full color (bars + label both update with the previewed value); clicking commits. The slider thumb still works for keyboard input.
+- **Decision tiles got a UX overhaul** matching the rest of the suite: tile body is the click target (no more separate Load button), trash icon replaces the Delete text button, and the Import button moved out of the create-row into the Saved Decisions header alongside the new Export All button.
+
+### Fixed
+- **Consistency Advisor and CR badge no longer appear after only 2 comparisons.** Both are now suppressed until you complete every required pair for your tier — the Harker matrix estimation produces unreliable CR values on sparse data, so showing them early was misleading.
+- **Voter Radar Chart legend now displays voter display names** instead of raw Firebase UIDs. Falls back to a truncated UID when no profile is available.
+
 ## v0.9.2 (May 1, 2026)
 
 ### Added

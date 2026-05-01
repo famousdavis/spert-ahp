@@ -1,5 +1,5 @@
 import { APP_VERSION } from '../core/models/constants';
-import { ATTRIBUTION_KEY } from '../components/settings/AppSettingsModal';
+import { ATTRIBUTION_KEY } from '../components/settings/GlobalSettingsPanel';
 import type {
   AHPExportEnvelope,
   ResponseDoc,

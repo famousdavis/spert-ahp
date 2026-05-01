@@ -29,6 +29,7 @@ export default function ComparisonInput({
 }: ComparisonInputProps) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const [showRing, setShowRing] = useState(false);
+  const [hoveredPos, setHoveredPos] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -67,6 +68,8 @@ export default function ComparisonInput({
 
   const sliderValue = storedToSlider(value);
   const isSet = value !== undefined;
+  const effectiveSliderValue = hoveredPos ?? sliderValue;
+  const isPreviewing = hoveredPos !== null;
 
   const impliedSliderValue = impliedValue !== undefined ? storedToSlider(impliedValue) : undefined;
   const showGhost = impliedSliderValue !== undefined && impliedSliderValue !== sliderValue;
@@ -79,35 +82,38 @@ export default function ComparisonInput({
     return itemB;
   })();
 
-  const getLabel = (): string => {
-    if (!isSet) return 'Not set';
-    const absSlider = Math.abs(sliderValue);
+  const getLabel = (slider: number): string => {
+    if (!isSet && !isPreviewing) return 'Not set';
+    const absSlider = Math.abs(slider);
     const entry = SAATY_SCALE.find((s) => s.value === absSlider + 1) ?? SAATY_SCALE[0]!;
     const label = mode === 'preference'
       ? entry.label.replace(/important/g, 'preferred')
       : entry.label;
-    if (sliderValue < 0) return `${itemA} — ${label}`;
-    if (sliderValue > 0) return `${itemB} — ${label}`;
+    if (slider < 0) return `${itemA} — ${label}`;
+    if (slider > 0) return `${itemB} — ${label}`;
     return label;
   };
 
   const thumbColor = sliderValue < 0 ? '#3b82f6' : sliderValue > 0 ? '#f59e0b' : '#9ca3af';
 
   // 17 intensity bars, one per slider position (-8 to +8)
-  // Bars fill outward from center toward the thumb direction
+  // Bars fill outward from center toward the thumb direction (or hover preview).
   const bars = Array.from({ length: 17 }, (_, i) => {
     const pos = i - 8; // -8..+8
     const height = 6 + (Math.abs(pos) / 8) * 22; // 6px at center, 28px at extremes
     const leftPercent = (i / 16) * 100;
     const isActive =
-      (sliderValue < 0 && pos < 0 && pos >= sliderValue) ||
-      (sliderValue > 0 && pos > 0 && pos <= sliderValue);
+      (effectiveSliderValue < 0 && pos < 0 && pos >= effectiveSliderValue) ||
+      (effectiveSliderValue > 0 && pos > 0 && pos <= effectiveSliderValue);
     let color: string;
-    if (isActive && sliderValue < 0) color = '#3b82f6';
-    else if (isActive && sliderValue > 0) color = '#f59e0b';
+    if (isActive && effectiveSliderValue < 0) color = '#3b82f6';
+    else if (isActive && effectiveSliderValue > 0) color = '#f59e0b';
     else color = 'var(--bar-inactive)';
     return { pos, height, leftPercent, color };
   });
+
+  const previewStored = isPreviewing ? sliderToStored(effectiveSliderValue) : undefined;
+  const displayedStored = previewStored ?? value;
 
   return (
     <div
@@ -115,16 +121,27 @@ export default function ComparisonInput({
       className={`p-3 rounded-lg border transition-all ${isSet ? 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800' : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900'}${showRing ? ' ring-2 ring-amber-400 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900' : ''}`}
     >
       <div className="flex justify-between text-sm mb-1 gap-4">
-        <span className={`max-w-[45%] ${sliderValue < 0 ? 'font-bold text-blue-600 dark:text-blue-400' : 'font-medium text-gray-500 dark:text-gray-400'}`}>{itemA}</span>
-        <span className={`max-w-[45%] text-right ${sliderValue > 0 ? 'font-bold text-amber-600 dark:text-amber-400' : 'font-medium text-gray-500 dark:text-gray-400'}`}>{itemB}</span>
+        <span className={`max-w-[45%] ${effectiveSliderValue < 0 ? 'font-bold text-blue-600 dark:text-blue-400' : 'font-medium text-gray-500 dark:text-gray-400'}`}>{itemA}</span>
+        <span className={`max-w-[45%] text-right ${effectiveSliderValue > 0 ? 'font-bold text-amber-600 dark:text-amber-400' : 'font-medium text-gray-500 dark:text-gray-400'}`}>{itemB}</span>
       </div>
       <div className="comparison-slider-wrap relative" style={{ height: '50px' }}>
-        {/* Intensity bars — top portion */}
-        <div className="absolute inset-x-0 top-0 flex justify-between items-end pointer-events-none" style={{ height: '30px' }}>
+        {/* Intensity bars — top portion. Each bar is clickable; hovering previews. */}
+        <div
+          className="absolute inset-x-0 top-0 flex justify-between items-end"
+          style={{ height: '30px' }}
+          onMouseLeave={() => setHoveredPos(null)}
+        >
           {bars.map((bar) => (
-            <div
+            <button
               key={bar.pos}
-              className="rounded-sm"
+              type="button"
+              tabIndex={-1}
+              aria-label={`Set comparison to position ${bar.pos}`}
+              onClick={() => onChange(sliderToStored(bar.pos))}
+              onMouseEnter={() => setHoveredPos(bar.pos)}
+              onFocus={() => setHoveredPos(bar.pos)}
+              onBlur={() => setHoveredPos(null)}
+              className="rounded-sm appearance-none border-0 p-0 cursor-pointer focus:outline-none"
               style={{
                 flex: '1 1 0',
                 margin: '0 1px',
@@ -169,13 +186,13 @@ export default function ComparisonInput({
         />
       </div>
       <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-1">
-        <span>{getLabel()}</span>
-        {isSet && value !== 1 && (
+        <span>{getLabel(effectiveSliderValue)}</span>
+        {displayedStored !== undefined && displayedStored !== 1 && (
           <span className="ml-2 text-gray-400 dark:text-gray-500">
-            ({value >= 1 ? value.toFixed(0) : `1/${(1 / value).toFixed(0)}`})
+            ({displayedStored >= 1 ? displayedStored.toFixed(0) : `1/${(1 / displayedStored).toFixed(0)}`})
           </span>
         )}
-        {isSet && criterionLabel && (
+        {(isSet || isPreviewing) && criterionLabel && (
           <span className="text-gray-400 dark:text-gray-500"> w.r.t. <span className="font-bold text-gray-600 dark:text-gray-300">{criterionLabel}</span></span>
         )}
       </div>
