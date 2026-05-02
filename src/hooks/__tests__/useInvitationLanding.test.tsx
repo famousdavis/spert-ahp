@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { TestProviders } from '../../__tests__/test-utils';
+import { AuthContext } from '../../contexts/AuthContext';
+import { StorageContext } from '../../contexts/StorageContext';
+import { LocalStorageAdapter } from '../../storage/LocalStorageAdapter';
 import { useInvitationLanding } from '../useInvitationLanding';
 
 // Mock the feature flag module so we can flip it per-suite. Vitest hoists
@@ -117,5 +121,81 @@ describe('useInvitationLanding', () => {
     });
     expect(result.current.state.kind).toBe('idle');
     expect(sessionStorage.getItem('spert:pendingInviteToken')).toBeNull();
+  });
+
+  // ─── auto-switchMode('cloud') on ?invite= detection ─────────
+
+  function makeWrapperWithStorage(opts: {
+    isCloudAvailable: boolean;
+    switchMode: (mode: 'local' | 'cloud') => void;
+  }) {
+    return function Wrapper({ children }: { children: ReactNode }) {
+      const adapter = new LocalStorageAdapter();
+      return (
+        <AuthContext.Provider
+          value={{
+            user: null,
+            loading: false,
+            firebaseAvailable: opts.isCloudAvailable,
+            signInError: null,
+            clearSignInError: () => {},
+            signInWithGoogle: async () => {},
+            signInWithMicrosoft: async () => {},
+            signOut: async () => {},
+          }}
+        >
+          <StorageContext.Provider
+            value={{
+              adapter,
+              mode: 'local',
+              isCloudAvailable: opts.isCloudAvailable,
+              switchMode: opts.switchMode,
+            }}
+          >
+            {children}
+          </StorageContext.Provider>
+        </AuthContext.Provider>
+      );
+    };
+  }
+
+  it("calls switchMode('cloud') when ?invite= is detected and cloud is available", () => {
+    setUrl('/?invite=tok123');
+    const switchMode = vi.fn();
+    renderHook(() => useInvitationLanding(), {
+      wrapper: makeWrapperWithStorage({ isCloudAvailable: true, switchMode }),
+    });
+    expect(switchMode).toHaveBeenCalledWith('cloud');
+  });
+
+  it('does not call switchMode when cloud is unavailable (Firebase not configured)', () => {
+    setUrl('/?invite=tok123');
+    const switchMode = vi.fn();
+    renderHook(() => useInvitationLanding(), {
+      wrapper: makeWrapperWithStorage({ isCloudAvailable: false, switchMode }),
+    });
+    expect(switchMode).not.toHaveBeenCalled();
+  });
+
+  it('does not call switchMode when no ?invite= param is present', () => {
+    setUrl('/');
+    const switchMode = vi.fn();
+    renderHook(() => useInvitationLanding(), {
+      wrapper: makeWrapperWithStorage({ isCloudAvailable: true, switchMode }),
+    });
+    expect(switchMode).not.toHaveBeenCalled();
+  });
+
+  it('does not call switchMode on dismiss', () => {
+    setUrl('/?invite=tok123');
+    const switchMode = vi.fn();
+    const { result } = renderHook(() => useInvitationLanding(), {
+      wrapper: makeWrapperWithStorage({ isCloudAvailable: true, switchMode }),
+    });
+    expect(switchMode).toHaveBeenCalledTimes(1);
+    act(() => {
+      result.current.dismiss();
+    });
+    expect(switchMode).toHaveBeenCalledTimes(1);
   });
 });

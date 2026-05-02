@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useStorage } from '../contexts/StorageContext';
 import { INVITATIONS_ENABLED } from '../lib/featureFlags';
 
 const SESSION_KEY = 'spert:pendingInviteToken';
@@ -20,8 +21,10 @@ interface ClaimedDetail {
  * Manages the ?invite=tokenId landing flow.
  *
  *  1. On mount, if the URL carries ?invite=, persist the token to
- *     sessionStorage (so it survives the OAuth popup round-trip) and
- *     surface a 'pre_auth' state so the shell can render a banner.
+ *     sessionStorage (so it survives the OAuth popup round-trip), force
+ *     the storage mode preference to 'cloud' (the invitee can't see the
+ *     shared model in local mode), and surface a 'pre_auth' state so the
+ *     shell can render a banner with sign-in CTAs.
  *  2. Once the user signs in, AuthContext fires `spert:models-changed`
  *     (which we listen for here too). We transition to 'claimed' with
  *     the names of any newly-claimed projects, then clear sessionStorage.
@@ -30,12 +33,19 @@ interface ClaimedDetail {
  *
  * Behind INVITATIONS_ENABLED — the hook short-circuits to 'idle' when
  * the flag is off, so production is unchanged.
+ *
+ * The auto-cloud-mode switch is intentional: an invitee landing from
+ * email has unambiguously opted into the shared-cloud workflow. Without
+ * the switch, signing in would leave them in local mode and the
+ * freshly-claimed model would be invisible — see useInvitationLanding
+ * docs for the full sequence.
  */
 export function useInvitationLanding(): {
   state: InvitationLandingState;
   dismiss: () => void;
 } {
   const { user } = useAuth();
+  const { switchMode, isCloudAvailable } = useStorage();
   const [state, setState] = useState<InvitationLandingState>({ kind: 'idle' });
 
   // 1) Detect ?invite= on first mount, regardless of auth state.
@@ -53,6 +63,12 @@ export function useInvitationLanding(): {
       // Strip the query param so reloads don't replay the banner.
       url.searchParams.delete(QUERY_PARAM);
       window.history.replaceState({}, '', url.toString());
+      // Pre-flip the storage preference so that whatever path the user
+      // takes to sign in (banner CTA or header AuthChip), they end up in
+      // cloud mode and can see the freshly-claimed shared project.
+      // No observable effect until they sign in (effectiveMode falls
+      // back to 'local' while user is null).
+      if (isCloudAvailable) switchMode('cloud');
     }
     const stored = (() => {
       try {
@@ -64,7 +80,7 @@ export function useInvitationLanding(): {
     if (stored && !user) {
       setState({ kind: 'pre_auth', tokenId: stored });
     }
-  }, [user]);
+  }, [user, switchMode, isCloudAvailable]);
 
   // 2) Listen for claim events dispatched by AuthContext.
   useEffect(() => {
