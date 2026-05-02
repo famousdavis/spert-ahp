@@ -56,7 +56,7 @@ describe('parseBulkEmails', () => {
 });
 
 describe('mapInvitationError', () => {
-  it('maps resource-exhausted to the per-day cap message', () => {
+  it('maps resource-exhausted to the per-day cap message (default send context)', () => {
     expect(mapInvitationError({ code: 'functions/resource-exhausted' })).toBe(
       "You've reached today's invitation limit (25). Try again tomorrow.",
     );
@@ -95,5 +95,50 @@ describe('mapInvitationError', () => {
 
   it('falls back to a generic message when neither code nor message is present', () => {
     expect(mapInvitationError({})).toMatch(/something went wrong/i);
+  });
+
+  // ─── Phase 3.5: context-aware copy for resend / revoke ──
+
+  it('maps resource-exhausted to the per-invitation cap message when context=resend', () => {
+    expect(
+      mapInvitationError({ code: 'functions/resource-exhausted' }, 'resend'),
+    ).toBe(
+      'This invitation has reached its resend limit (5). Revoke and re-invite to start over.',
+    );
+  });
+
+  it('maps permission-denied to the resend/revoke variant when context=resend', () => {
+    expect(
+      mapInvitationError({ code: 'functions/permission-denied' }, 'resend'),
+    ).toBe('Only the model owner can resend or revoke this invitation.');
+  });
+
+  it('maps permission-denied to the resend/revoke variant when context=revoke', () => {
+    expect(
+      mapInvitationError({ code: 'functions/permission-denied' }, 'revoke'),
+    ).toBe('Only the model owner can resend or revoke this invitation.');
+  });
+
+  it('maps failed-precondition to the non-pending message for resend/revoke', () => {
+    expect(
+      mapInvitationError({ code: 'functions/failed-precondition' }, 'resend'),
+    ).toBe('This invitation can no longer be resent or revoked.');
+    expect(
+      mapInvitationError({ code: 'functions/failed-precondition' }, 'revoke'),
+    ).toBe('This invitation can no longer be resent or revoked.');
+  });
+
+  it('maps not-found to a different copy for resend/revoke contexts', () => {
+    expect(
+      mapInvitationError({ code: 'functions/not-found' }, 'resend'),
+    ).toMatch(/no longer exists/i);
+    expect(
+      mapInvitationError({ code: 'functions/not-found' }, 'revoke'),
+    ).toMatch(/no longer exists/i);
+  });
+
+  it('falls back to a context-appropriate generic for unmapped resend/revoke errors', () => {
+    expect(mapInvitationError({}, 'resend')).toMatch(/resending/i);
+    expect(mapInvitationError({}, 'revoke')).toMatch(/revoking/i);
   });
 });

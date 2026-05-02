@@ -256,6 +256,14 @@ describe('LocalStorageAdapter', () => {
       expect(await adapter.listPendingInvites('m1')).toEqual([]);
     });
 
+    it('revokeInvite is a silent no-op in local mode', async () => {
+      await expect(adapter.revokeInvite('any-token-id')).resolves.toBeUndefined();
+    });
+
+    it('resendInvite is a silent no-op in local mode', async () => {
+      await expect(adapter.resendInvite('any-token-id')).resolves.toBeUndefined();
+    });
+
     it('removeCollaborator drops the doc and prunes the list', async () => {
       const meta = createModelDoc('Test', 'Goal', 'owner');
       await adapter.createModel('m1', meta, createStructureDoc());

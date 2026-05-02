@@ -376,12 +376,20 @@ export interface StorageAdapter {
    * spertsuite_invitations directly via the owner-branch security rule
    * (inviterUid == request.auth.uid). Returns only status === 'pending'.
    * Local-mode returns an empty array.
-   *
-   * v0.11.0 ships read-only display of pending invites. Resend/Revoke
-   * action callables are deferred to a follow-up sub-phase that will
-   * add the corresponding server endpoints.
    */
   listPendingInvites(modelId: string): Promise<PendingInvite[]>;
+  /**
+   * Soft-revoke a pending invitation. Server marks status='revoked'
+   * (no delete). Caller must be the inviter. Local-mode is a no-op.
+   */
+  revokeInvite(tokenId: string): Promise<void>;
+  /**
+   * Re-send a pending invitation email. Server enforces a hard cap of
+   * 5 sends per invitation; bumping past the cap returns
+   * resource-exhausted. Caller must be the inviter. Local-mode is a
+   * no-op.
+   */
+  resendInvite(tokenId: string): Promise<void>;
 }
 
 // ─── useAHP State ────────────────────────────────────────────

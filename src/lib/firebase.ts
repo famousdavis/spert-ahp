@@ -89,3 +89,42 @@ export function getClaimPendingInvitations():
     'claimPendingInvitations',
   );
 }
+
+// ─── Revoke / Resend (Phase 3.5) ────────────────────────────
+
+export interface RevokeInviteInput {
+  tokenId: string;
+}
+
+export interface RevokeInviteResult {
+  revoked: true;
+}
+
+export interface ResendInviteInput {
+  tokenId: string;
+}
+
+export interface ResendInviteResult {
+  resent: true;
+  emailSendCount: number;
+}
+
+export function getRevokeInvite():
+  | HttpsCallable<RevokeInviteInput, RevokeInviteResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<RevokeInviteInput, RevokeInviteResult>(
+    functionsInstance,
+    'revokeInvite',
+  );
+}
+
+export function getResendInvite():
+  | HttpsCallable<ResendInviteInput, ResendInviteResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<ResendInviteInput, ResendInviteResult>(
+    functionsInstance,
+    'resendInvite',
+  );
+}

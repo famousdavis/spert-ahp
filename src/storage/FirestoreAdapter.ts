@@ -12,7 +12,7 @@ import {
   onSnapshot,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, getRevokeInvite, getResendInvite } from '../lib/firebase';
 import {
   serializeSynthesisForFirestore,
   deserializeSynthesisFromFirestore,
@@ -554,6 +554,31 @@ export class FirestoreAdapter implements StorageAdapter {
     });
     out.sort((a, b) => b.createdAt - a.createdAt);
     return out;
+  }
+
+  // ─── Invitation actions (Phase 3.5) ────────────────────────
+
+  /**
+   * Soft-revoke a pending invitation via the revokeInvite Cloud Function.
+   * Server flips status='revoked' (no delete). Errors propagate as
+   * Firebase HttpsError; SharingSection's mapInvitationError translates
+   * them to user-facing copy.
+   */
+  async revokeInvite(tokenId: string): Promise<void> {
+    const callable = getRevokeInvite();
+    if (!callable) throw new Error('Cloud invitations are not configured.');
+    await callable({ tokenId });
+  }
+
+  /**
+   * Re-send a pending invitation via the resendInvite Cloud Function.
+   * Server enforces emailSendCount <= 5; HttpsError 'resource-exhausted'
+   * is mapped to cap copy by SharingSection.mapInvitationError.
+   */
+  async resendInvite(tokenId: string): Promise<void> {
+    const callable = getResendInvite();
+    if (!callable) throw new Error('Cloud invitations are not configured.');
+    await callable({ tokenId });
   }
 }
 

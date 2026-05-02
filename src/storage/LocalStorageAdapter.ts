@@ -362,6 +362,14 @@ export class LocalStorageAdapter implements StorageAdapter {
     return [];
   }
 
+  async revokeInvite(_tokenId: string): Promise<void> {
+    // Cloud-only; local mode silently no-ops.
+  }
+
+  async resendInvite(_tokenId: string): Promise<void> {
+    // Cloud-only; local mode silently no-ops.
+  }
+
   // ─── Internal helpers ──────────────────────────────────────────
 
   private _hasAnyResponses(modelId: string): boolean {
