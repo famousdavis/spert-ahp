@@ -4,6 +4,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   collection,
   query,
   where,
@@ -28,6 +29,8 @@ import type {
   ComparisonMap,
   SynthesisBundle,
   AHPExportBundle,
+  PendingInvite,
+  InvitationStatus,
 } from '../types/ahp';
 
 const CURRENT_SCHEMA_VERSION = 1;
@@ -364,6 +367,22 @@ export class FirestoreAdapter implements StorageAdapter {
     await updateDoc(docRef(modelId), update);
   }
 
+  async removeCollaborator(modelId: string, userId: string): Promise<void> {
+    // Replaces the direct updateDoc bypass that previously lived in
+    // SharingSection.handleRemove. Updates both the embedded collaborators
+    // array and the members map; leaves the response slot intact so a
+    // re-added collaborator's prior judgments are preserved.
+    const snap = await getDoc(docRef(modelId));
+    if (!snap.exists()) throw new Error(`Model ${modelId} not found`);
+    const d = snap.data() as FirestoreModelDoc;
+    const remaining = (d.collaborators ?? []).filter((c) => c.userId !== userId);
+    await updateDoc(docRef(modelId), {
+      collaborators: remaining,
+      [`members.${userId}`]: deleteField(),
+      updatedAt: Date.now(),
+    });
+  }
+
   // ─── Responses ──────────────────────────────────────────────
 
   async getResponse(modelId: string, userId: string): Promise<ResponseDoc | null> {
@@ -489,5 +508,67 @@ export class FirestoreAdapter implements StorageAdapter {
       callback(snap.data());
     });
   }
+
+  // ─── Pending invitations (suite-wide) ──────────────────────
+
+  /**
+   * List pending invitations for a model. Reads spertsuite_invitations
+   * directly via the owner-branch security rule:
+   *   inviterUid == request.auth.uid
+   * Uses the deployed (inviterUid, modelId, createdAt) composite index.
+   */
+  async listPendingInvites(modelId: string): Promise<PendingInvite[]> {
+    if (!db) return [];
+    const q = query(
+      collection(requireDb(), 'spertsuite_invitations'),
+      where('inviterUid', '==', this.uid),
+      where('modelId', '==', modelId),
+    );
+    const snap = await getDocs(q);
+    const out: PendingInvite[] = [];
+    snap.forEach((s) => {
+      const d = s.data() as Record<string, unknown>;
+      if (d['status'] !== 'pending') return;
+      out.push({
+        tokenId: s.id,
+        appId: (d['appId'] as string) ?? 'spertahp',
+        modelId: (d['modelId'] as string) ?? modelId,
+        modelName: (d['modelName'] as string) ?? '',
+        inviteeEmail: (d['inviteeEmail'] as string) ?? '',
+        role: (d['role'] as PendingInvite['role']) ?? 'editor',
+        isVoting: Boolean(d['isVoting']),
+        inviterUid: (d['inviterUid'] as string) ?? this.uid,
+        inviterName: (d['inviterName'] as string) ?? '',
+        inviterEmail: (d['inviterEmail'] as string) ?? '',
+        status: (d['status'] as InvitationStatus) ?? 'pending',
+        createdAt: tsToMillis(d['createdAt']),
+        expiresAt: tsToMillis(d['expiresAt']),
+        lastEmailSentAt: tsToMillis(d['lastEmailSentAt']),
+        emailSendCount: typeof d['emailSendCount'] === 'number' ? (d['emailSendCount'] as number) : 0,
+        updatedAt: tsToMillis(d['updatedAt']),
+        ...(d['acceptedAt'] !== undefined ? { acceptedAt: tsToMillis(d['acceptedAt']) } : {}),
+        ...(d['acceptedByUid'] !== undefined
+          ? { acceptedByUid: d['acceptedByUid'] as string }
+          : {}),
+      });
+    });
+    out.sort((a, b) => b.createdAt - a.createdAt);
+    return out;
+  }
+}
+
+/**
+ * Coerce a Firestore Timestamp (or number, or undefined) into millis.
+ * Server-written `createdAt`/`expiresAt` fields land as Timestamp objects;
+ * the SDK exposes `.toMillis()` for conversion.
+ */
+function tsToMillis(value: unknown): number {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'object' && value !== null && 'toMillis' in value) {
+    const fn = (value as { toMillis: () => number }).toMillis;
+    if (typeof fn === 'function') return fn.call(value);
+  }
+  return 0;
 }
 

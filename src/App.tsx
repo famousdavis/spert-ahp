@@ -11,6 +11,7 @@ import GlobalSettingsPanel from './components/settings/GlobalSettingsPanel';
 import { useUserId } from './hooks/useUserId';
 import { useAHP } from './hooks/useAHP';
 import { useTheme } from './hooks/useTheme';
+import { useInvitationLanding } from './hooks/useInvitationLanding';
 import { useStorage } from './contexts/StorageContext';
 import { registerSignOutCleanup } from './lib/signOutCleanupRegistry';
 
@@ -23,6 +24,7 @@ export default function App() {
   const userId = useUserId();
   const ahpState = useAHP(userId);
   const { mode } = useStorage();
+  const invitationLanding = useInvitationLanding();
   useTheme(); // Initialize theme on mount
 
   // Register the in-memory state reset with the centralized sign-out registry.
@@ -126,6 +128,32 @@ export default function App() {
 
       <main className="flex-1 p-6">
         <div className={isTab ? 'max-w-4xl mx-auto' : ''}>
+          {invitationLanding.state.kind !== 'idle' && (
+            <div className="mb-4 flex items-start justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+              <div>
+                {invitationLanding.state.kind === 'pre_auth' && (
+                  <>You&rsquo;ve been invited to a SPERT AHP project. Sign in to accept.</>
+                )}
+                {invitationLanding.state.kind === 'claimed' && (
+                  <>
+                    You&rsquo;ve been added to{' '}
+                    {invitationLanding.state.modelNames.length > 0
+                      ? invitationLanding.state.modelNames.join(', ')
+                      : 'a shared project'}
+                    .
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={invitationLanding.dismiss}
+                className="ml-2 text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100"
+                aria-label="Dismiss invitation banner"
+              >
+                ×
+              </button>
+            </div>
+          )}
           {renderContent()}
         </div>
       </main>
