@@ -8,4 +8,4 @@
  *         and AuthContext fires claimPendingInvitations on every auth
  *         resolution.
  */
-export const INVITATIONS_ENABLED = false;
+export const INVITATIONS_ENABLED = true;
