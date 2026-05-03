@@ -3,10 +3,11 @@ import AppHeader from './components/shell/AppHeader';
 import AppFooter from './components/shell/AppFooter';
 import AboutPage from './components/shell/AboutPage';
 import ChangelogPage from './components/shell/ChangelogPage';
-import ModelSetup from './components/setup/ModelSetup';
+import DashboardPanel from './components/setup/DashboardPanel';
+import DecisionPanel from './components/setup/DecisionPanel';
 import ComparisonPanel from './components/comparison/ComparisonPanel';
 import ResultsPanel from './components/results/ResultsPanel';
-import ProjectSettingsPanel from './components/settings/ProjectSettingsPanel';
+import ManagePanel from './components/settings/ManagePanel';
 import GlobalSettingsPanel from './components/settings/GlobalSettingsPanel';
 import InvitationBanner from './components/shell/InvitationBanner';
 import { useUserId } from './hooks/useUserId';
@@ -15,12 +16,12 @@ import { useTheme } from './hooks/useTheme';
 import { useStorage } from './contexts/StorageContext';
 import { registerSignOutCleanup } from './lib/signOutCleanupRegistry';
 
-const TABS = ['Decisions', 'Compare', 'Results', 'Project', 'Settings'] as const;
+const TABS = ['Dashboard', 'Decision', 'Compare', 'Results', 'Manage', 'Settings'] as const;
 type TabName = typeof TABS[number];
 type Page = TabName | 'About' | 'Changelog';
 
 export default function App() {
-  const [activePage, setActivePage] = useState<Page>('Decisions');
+  const [activePage, setActivePage] = useState<Page>('Dashboard');
   const userId = useUserId();
   const ahpState = useAHP(userId);
   const { mode } = useStorage();
@@ -48,36 +49,59 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, ahpState.closeModel]);
 
-  // If the user is on the Project tab and the model closes, redirect to
-  // Decisions. Guard must check BOTH conditions — never redirect away from
-  // any other tab.
+  // Fall back to Dashboard when an open decision closes from under the
+  // user (delete, sign-out, cloud→local mode flip) while they're on a
+  // model-scoped tab. Forward navigation to Decision after open/load is
+  // driven explicitly by DashboardPanel via onDecisionOpened so that
+  // re-clicking the already-loaded card still navigates — relying on a
+  // null→truthy transition would silently no-op in that case.
+  const prevModelIdRef = useRef<string | null | undefined>(ahpState.modelId);
   useEffect(() => {
-    if (!ahpState.modelId && activePage === 'Project') {
-      setActivePage('Decisions');
+    const prev = prevModelIdRef.current;
+    if (prev && !ahpState.modelId && (activePage === 'Manage' || activePage === 'Decision')) {
+      setActivePage('Dashboard');
     }
+    prevModelIdRef.current = ahpState.modelId;
   }, [ahpState.modelId, activePage]);
 
   const isTab = (TABS as readonly string[]).includes(activePage);
 
-  // The Project tab only appears when a model is loaded. Compare and Results
+  // The Manage tab only appears when a model is loaded. Compare and Results
   // intentionally remain always-visible (they render gated messages internally).
-  const visibleTabs = TABS.filter((tab) => tab !== 'Project' || !!ahpState.modelId);
+  const visibleTabs = TABS.filter((tab) => tab !== 'Manage' || !!ahpState.modelId);
 
   const handleNavigateHome = () => {
     ahpState.closeModel();
-    setActivePage('Decisions');
+    setActivePage('Dashboard');
   };
 
   const renderContent = () => {
     switch (activePage) {
-      case 'Decisions':
-        return <ModelSetup ahpState={ahpState} userId={userId} />;
+      case 'Dashboard':
+        return <DashboardPanel ahpState={ahpState} userId={userId} onDecisionOpened={() => setActivePage('Decision')} />;
+      case 'Decision':
+        return ahpState.modelId
+          ? <DecisionPanel ahpState={ahpState} />
+          : (
+            <div className="space-y-4 max-w-md">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">No decision open</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Create a new decision or load an existing one from the Dashboard.
+              </p>
+              <button
+                onClick={() => setActivePage('Dashboard')}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          );
       case 'Compare':
         return <ComparisonPanel ahpState={ahpState} userId={userId} />;
       case 'Results':
         return <ResultsPanel ahpState={ahpState} userId={userId} />;
-      case 'Project':
-        return <ProjectSettingsPanel ahpState={ahpState} />;
+      case 'Manage':
+        return <ManagePanel ahpState={ahpState} />;
       case 'Settings':
         return <GlobalSettingsPanel />;
       case 'About':

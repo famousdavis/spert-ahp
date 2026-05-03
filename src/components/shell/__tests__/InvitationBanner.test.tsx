@@ -72,7 +72,7 @@ describe('InvitationBanner', () => {
     setUrl('/?invite=tok123');
     render(<InvitationBanner />, { wrapper: makeWrapper() });
     // getByText / getByRole throw if the node is missing — assertion is implicit.
-    screen.getByText(/invited to a SPERT AHP project/i);
+    screen.getByText(/invited to a SPERT AHP decision/i);
     screen.getByRole('button', { name: /sign in with google/i });
     screen.getByRole('button', { name: /sign in with microsoft/i });
   });
@@ -110,7 +110,7 @@ describe('InvitationBanner', () => {
   it('renders the claim message after spert:models-changed fires', () => {
     setUrl('/?invite=tok123');
     render(<InvitationBanner />, { wrapper: makeWrapper() });
-    screen.getByText(/invited to a SPERT AHP project/i);
+    screen.getByText(/invited to a SPERT AHP decision/i);
     act(() => {
       window.dispatchEvent(
         new CustomEvent('spert:models-changed', {

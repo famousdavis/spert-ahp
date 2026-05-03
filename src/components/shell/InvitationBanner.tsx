@@ -47,7 +47,7 @@ export default function InvitationBanner() {
         <div className="flex-1">
           {state.kind === 'pre_auth' && (
             <>
-              <div className="font-medium">You&rsquo;ve been invited to a SPERT AHP project.</div>
+              <div className="font-medium">You&rsquo;ve been invited to a SPERT AHP decision.</div>
               {firebaseAvailable ? (
                 <>
                   <div className="mt-0.5 text-xs text-blue-800 dark:text-blue-300">
@@ -87,7 +87,7 @@ export default function InvitationBanner() {
               <span className="font-medium">
                 {state.modelNames.length > 0
                   ? state.modelNames.join(', ')
-                  : 'a shared project'}
+                  : 'a shared decision'}
               </span>
               .
             </div>

@@ -135,8 +135,8 @@ function writeUserProfile(user: User): void {
  * Fire-and-forget call to the claimPendingInvitations Cloud Function.
  * Idempotent — safe on every auth resolution (Branch A and Branch B).
  * On success, dispatches a window-level `spert:models-changed` event so
- * any mounted ModelSetup re-runs listModels() and the freshly-claimed
- * project appears immediately. Failures are logged silently — the user
+ * any mounted DashboardPanel re-runs listModels() and the freshly-claimed
+ * decision appears immediately. Failures are logged silently — the user
  * can still claim later (or reload).
  */
 function claimPendingInvitationsAndNotify(): void {
