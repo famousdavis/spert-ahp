@@ -501,12 +501,22 @@ export class FirestoreAdapter implements StorageAdapter {
 
   subscribeModel(modelId: string, callback: (data: unknown) => void): () => void {
     if (!db) return () => {};
-    return onSnapshot(docRef(modelId), (snap) => {
-      // Echo prevention — don't fire on our own unflushed writes (GanttApp lesson 14)
-      if (snap.metadata.hasPendingWrites) return;
-      if (!snap.exists()) return;
-      callback(snap.data());
-    });
+    return onSnapshot(
+      docRef(modelId),
+      (snap) => {
+        // Echo prevention — don't fire on our own unflushed writes (GanttApp lesson 14)
+        if (snap.metadata.hasPendingWrites) return;
+        if (!snap.exists()) return;
+        callback(snap.data());
+      },
+      (err) => {
+        console.error(
+          `[FirestoreAdapter] subscribeModel error for ${modelId}:`,
+          (err as { code?: string }).code ?? 'unknown',
+          (err as Error).message,
+        );
+      },
+    );
   }
 
   // ─── Pending invitations (suite-wide) ──────────────────────

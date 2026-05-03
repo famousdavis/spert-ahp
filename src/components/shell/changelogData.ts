@@ -9,6 +9,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.13.1',
+    date: '2026-05-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'onSnapshot listener now logs Firestore stream errors. FirestoreAdapter.subscribeModel previously passed only a success callback, so a transient permission revocation, network failure, or rules-eval rejection on the live model document would terminate the subscription silently with no diagnostic. Added an error callback that logs the Firebase error code and message. No tracking-set cleanup was needed — the single subscription is owned by useAHP\'s useEffect and torn down via React cleanup, not via a Set of active doc IDs',
+          'autoComplete props on two form inputs. Added autoComplete="off" to the collaborator-email input in SharingSection (the field collects another user\'s email, so the signer-in\'s saved email should not autofill). Added autoComplete="name" to the Export Attribution name input in GlobalSettingsPanel (the field collects the user\'s own name for export-metadata stamping). All other text inputs in the codebase carry app-domain labels (decision titles, criterion names, alternative names, identifier example-format hints) and are correctly excluded',
+        ],
+      },
+      {
+        title: 'Out of scope (flagged, not done)',
+        items: [
+          'Centralized error-notification surface. A handful of Firestore writes — specifically the fire-and-forget profile updates in AuthContext.writeUserProfile — log failures to console only and never reach the user. Wiring them to a user-visible toast/banner would require introducing a notification provider that does not currently exist anywhere in the app (every other surfaced error is held in component-local React state and rendered as an inline banner). Building one as a side effect of a hardening pass is out of scope; logged for future work',
+          'No dependency upgrades',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-05-02',
     sections: [
