@@ -1,5 +1,21 @@
 # SPERT® AHP — Changelog
 
+## v0.12.1 (May 2, 2026)
+
+### Fixed
+- **Accurate error copy on pending-invitation voting toggle.** Toggling the voting flag on a pending invite previously surfaced the resend-flow message ("This invitation has reached its resend limit (5)…") for unrelated failures, because `handleTogglePendingVoting` shared the `'resend'` error context with `handleResendInvite`. New `'updateVoting'` context covers `permission-denied`, `failed-precondition` (most likely real-world hit), `not-found`, and `resource-exhausted` with action-appropriate copy.
+- **`useAHP.loadModel` stale-userId closure.** The `useCallback` dependency array omitted `userId`, so re-rendering `useAHP` with a new `userId` left `loadModel` operating on the old user — most visibly the response-slot self-heal touching the wrong slot. Brought into alignment with `createModel`, which already had the correct deps. Adds a regression test that re-renders the same hook instance with a new userId.
+- **Stuck `pre_auth` invitation banner after silent claim failure.** If `claimPendingInvitations` failed inside `AuthContext` (logged + swallowed by design), the dismissible banner previously stranded a signed-in user on a "You've been invited" message with non-functional sign-in CTAs. `useInvitationLanding` now clears `pre_auth` → `idle` the moment the user becomes non-null, while still honoring the `spert:models-changed` claim event when it arrives. Functional `setState` avoids stomping a `'claimed'` state under any race ordering.
+
+### Internal
+- Pulled `mapInvitationError` + `InvitationErrorContext` out of `SharingSection.tsx` into `src/lib/invitationErrors.ts`. Existing test cases moved verbatim into a new sibling test file alongside the new `'updateVoting'` cases.
+- Pulled `parseBulkEmails` out of `SharingSection.tsx` into `src/lib/parseBulkEmails.ts`. Existing test cases moved verbatim.
+- Extracted `PendingInvitesList` from `SharingSection.tsx` into its own component (data-in via two props, actions out via three callbacks; `formatDate` moved with it). `SharingSection.tsx` drops to under 400 LOC.
+- Extracted `mapToPendingInvite` as a module-level helper in `FirestoreAdapter.ts`, alongside the existing `tsToMillis` helper. `listPendingInvites` is now a thin loop over the helper.
+
+### Out of scope (flagged, not done)
+- No dependency upgrades. Every available bump is either inside the 60-day freeze window (firebase 12.12.x, tailwindcss 4.2.4, typescript 6.0.x) or a major-version step (vite 8.x, vitest 4.x, @vitejs/plugin-react 6.x, react 19.x, recharts 3.x, jsdom 29.x). All remain pinned.
+
 ## v0.12.0 (May 2, 2026)
 
 ### Added

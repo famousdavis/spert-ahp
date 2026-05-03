@@ -529,28 +529,7 @@ export class FirestoreAdapter implements StorageAdapter {
     snap.forEach((s) => {
       const d = s.data() as Record<string, unknown>;
       if (d['status'] !== 'pending') return;
-      out.push({
-        tokenId: s.id,
-        appId: (d['appId'] as string) ?? 'spertahp',
-        modelId: (d['modelId'] as string) ?? modelId,
-        modelName: (d['modelName'] as string) ?? '',
-        inviteeEmail: (d['inviteeEmail'] as string) ?? '',
-        role: (d['role'] as PendingInvite['role']) ?? 'editor',
-        isVoting: Boolean(d['isVoting']),
-        inviterUid: (d['inviterUid'] as string) ?? this.uid,
-        inviterName: (d['inviterName'] as string) ?? '',
-        inviterEmail: (d['inviterEmail'] as string) ?? '',
-        status: (d['status'] as InvitationStatus) ?? 'pending',
-        createdAt: tsToMillis(d['createdAt']),
-        expiresAt: tsToMillis(d['expiresAt']),
-        lastEmailSentAt: tsToMillis(d['lastEmailSentAt']),
-        emailSendCount: typeof d['emailSendCount'] === 'number' ? (d['emailSendCount'] as number) : 0,
-        updatedAt: tsToMillis(d['updatedAt']),
-        ...(d['acceptedAt'] !== undefined ? { acceptedAt: tsToMillis(d['acceptedAt']) } : {}),
-        ...(d['acceptedByUid'] !== undefined
-          ? { acceptedByUid: d['acceptedByUid'] as string }
-          : {}),
-      });
+      out.push(mapToPendingInvite(s.id, d, modelId, this.uid));
     });
     out.sort((a, b) => b.createdAt - a.createdAt);
     return out;
@@ -608,5 +587,42 @@ function tsToMillis(value: unknown): number {
     if (typeof fn === 'function') return fn.call(value);
   }
   return 0;
+}
+
+/**
+ * Map a raw spertsuite_invitations Firestore document into the strongly-typed
+ * PendingInvite domain object. Defaults match the original inline mapping —
+ * missing string fields fall back to '' or sensible enum values, missing
+ * timestamps to 0, missing send count to 0. Caller is responsible for
+ * filtering by `status === 'pending'`.
+ */
+function mapToPendingInvite(
+  id: string,
+  d: Record<string, unknown>,
+  fallbackModelId: string,
+  callerUid: string,
+): PendingInvite {
+  return {
+    tokenId: id,
+    appId: (d['appId'] as string) ?? 'spertahp',
+    modelId: (d['modelId'] as string) ?? fallbackModelId,
+    modelName: (d['modelName'] as string) ?? '',
+    inviteeEmail: (d['inviteeEmail'] as string) ?? '',
+    role: (d['role'] as PendingInvite['role']) ?? 'editor',
+    isVoting: Boolean(d['isVoting']),
+    inviterUid: (d['inviterUid'] as string) ?? callerUid,
+    inviterName: (d['inviterName'] as string) ?? '',
+    inviterEmail: (d['inviterEmail'] as string) ?? '',
+    status: (d['status'] as InvitationStatus) ?? 'pending',
+    createdAt: tsToMillis(d['createdAt']),
+    expiresAt: tsToMillis(d['expiresAt']),
+    lastEmailSentAt: tsToMillis(d['lastEmailSentAt']),
+    emailSendCount: typeof d['emailSendCount'] === 'number' ? (d['emailSendCount'] as number) : 0,
+    updatedAt: tsToMillis(d['updatedAt']),
+    ...(d['acceptedAt'] !== undefined ? { acceptedAt: tsToMillis(d['acceptedAt']) } : {}),
+    ...(d['acceptedByUid'] !== undefined
+      ? { acceptedByUid: d['acceptedByUid'] as string }
+      : {}),
+  };
 }
 

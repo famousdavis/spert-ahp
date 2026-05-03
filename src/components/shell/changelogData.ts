@@ -9,6 +9,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.12.1',
+    date: '2026-05-02',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Toggling voting on a pending invitation now shows accurate error copy. Previously a failure surfaced the resend-flow message ("This invitation has reached its resend limit (5)…"), which never applied to voting updates. New "updateVoting" error context covers permission-denied, failed-precondition, not-found, and rate-limit cases with copy that matches the action',
+          'useAHP.loadModel no longer closes over a stale userId. The useCallback dependency array was missing userId, so re-rendering the hook with a new userId (e.g. sign-out + sign-in within the same React tree) left loadModel operating on the old user — most visibly via the response-slot self-heal touching the wrong slot. Brought into alignment with createModel, which already had the correct dep array',
+          'Stuck "you\'ve been invited" banner cleared after sign-in. If the silent claim path inside AuthContext failed, the banner previously stranded a signed-in user with non-functional sign-in CTAs. The hook now transitions pre_auth → idle the moment the user becomes non-null, while still honoring the spert:models-changed claim event when it arrives',
+        ],
+      },
+      {
+        title: 'Internal',
+        items: [
+          'Pulled mapInvitationError + InvitationErrorContext out of SharingSection into src/lib/invitationErrors.ts; tests moved alongside',
+          'Pulled parseBulkEmails out of SharingSection into src/lib/parseBulkEmails.ts; tests moved alongside',
+          'Extracted PendingInvitesList from SharingSection into its own component; SharingSection drops to under 400 LOC',
+          'Extracted mapToPendingInvite as a module-level helper in FirestoreAdapter, alongside the existing tsToMillis helper',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.12.0',
     date: '2026-05-02',
     sections: [

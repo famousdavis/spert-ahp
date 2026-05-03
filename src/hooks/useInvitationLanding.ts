@@ -102,6 +102,19 @@ export function useInvitationLanding(): {
     return () => window.removeEventListener('spert:models-changed', onChanged);
   }, []);
 
+  // 3) Once the user signs in, clear a lingering 'pre_auth' state. The
+  // claim either succeeded (the listener above will move us to 'claimed')
+  // or it failed silently inside AuthContext — in which case the banner
+  // would otherwise strand a signed-in user on a "you've been invited"
+  // banner with non-functional sign-in CTAs. Functional setState avoids
+  // stomping on a 'claimed' state that may have arrived first under any
+  // race ordering.
+  useEffect(() => {
+    if (!INVITATIONS_ENABLED) return;
+    if (!user) return;
+    setState((prev) => (prev.kind === 'pre_auth' ? { kind: 'idle' } : prev));
+  }, [user]);
+
   return {
     state,
     dismiss: () => {

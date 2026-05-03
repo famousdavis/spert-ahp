@@ -3,9 +3,12 @@ import type { FirebaseError } from 'firebase/app';
 import { collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db, getSendInvitationEmail, type SendInvitationEmailResult } from '../../lib/firebase';
 import { INVITATIONS_ENABLED } from '../../lib/featureFlags';
+import { mapInvitationError } from '../../lib/invitationErrors';
+import { parseBulkEmails } from '../../lib/parseBulkEmails';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStorage } from '../../contexts/StorageContext';
 import { useProfiles } from '../../hooks/useProfiles';
+import PendingInvitesList from './PendingInvitesList';
 import type {
   UseAHPReturn,
   CollaboratorDoc,
@@ -32,86 +35,6 @@ async function lookupUidByEmail(email: string): Promise<{ uid: string; displayNa
   const first = snap.docs[0]!;
   const data = first.data() as { displayName?: string };
   return { uid: first.id, displayName: data.displayName };
-}
-
-/**
- * Split a bulk-paste textarea into a normalized list of email addresses.
- * Accepts commas, semicolons, and any whitespace (including newlines) as
- * separators. Lowercases, trims, and de-duplicates while preserving the
- * caller's original ordering.
- */
-export function parseBulkEmails(raw: string): string[] {
-  if (!raw) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const part of raw.split(/[,;\s]+/)) {
-    const e = part.trim().toLowerCase();
-    if (!e || seen.has(e)) continue;
-    seen.add(e);
-    out.push(e);
-  }
-  return out;
-}
-
-/**
- * Translate a Firebase callable error into copy the owner can act on.
- * Falls back to the raw message for unmapped codes.
- *
- * `context` disambiguates error codes shared across callables — e.g.
- * resource-exhausted means the per-day 25-cap on send, but the per-
- * invitation 5-cap on resend; permission-denied / failed-precondition
- * also need different copy for resend/revoke vs. send.
- */
-export type InvitationErrorContext = 'send' | 'resend' | 'revoke';
-
-export function mapInvitationError(
-  err: unknown,
-  context: InvitationErrorContext = 'send',
-): string {
-  const code = (err as { code?: string }).code ?? '';
-  const message = (err as { message?: string }).message ?? '';
-  if (code === 'functions/resource-exhausted') {
-    if (context === 'resend') {
-      return 'This invitation has reached its resend limit (5). Revoke and re-invite to start over.';
-    }
-    return "You've reached today's invitation limit (25). Try again tomorrow.";
-  }
-  if (code === 'functions/permission-denied') {
-    if (context === 'resend' || context === 'revoke') {
-      return 'Only the model owner can resend or revoke this invitation.';
-    }
-    return 'Only the model owner can send invitations.';
-  }
-  if (code === 'functions/failed-precondition') {
-    if (context === 'resend' || context === 'revoke') {
-      return 'This invitation can no longer be resent or revoked.';
-    }
-    return message || 'The invitation request could not be processed.';
-  }
-  if (code === 'functions/unauthenticated') {
-    return 'Please sign in again before sending invitations.';
-  }
-  if (code === 'functions/not-found') {
-    if (context === 'resend' || context === 'revoke') {
-      return 'This invitation no longer exists. Try reloading.';
-    }
-    return 'This decision could not be found. Try reloading.';
-  }
-  if (code === 'functions/invalid-argument') {
-    return message || 'One of the invitation fields is invalid.';
-  }
-  if (context === 'resend') {
-    return message || 'Something went wrong resending the invitation.';
-  }
-  if (context === 'revoke') {
-    return message || 'Something went wrong revoking the invitation.';
-  }
-  return message || 'Something went wrong sending the invitations.';
-}
-
-function formatDate(ms: number): string {
-  if (!ms) return '';
-  return new Date(ms).toLocaleDateString();
 }
 
 export default function SharingSection({ ahpState }: SharingSectionProps) {
@@ -280,7 +203,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
       await ahpState.storage.updateInvite(tokenId, nextValue);
       await refreshPending();
     } catch (e) {
-      setError(mapInvitationError(e as FirebaseError, 'resend'));
+      setError(mapInvitationError(e as FirebaseError, 'updateVoting'));
     } finally {
       setActionBusy(null);
     }
@@ -499,70 +422,14 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
         })}
       </ul>
 
-      {INVITATIONS_ENABLED && pendingInvites.length > 0 && (
-        <div className="space-y-1.5">
-          <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300">
-            Pending invitations ({pendingInvites.length})
-          </h4>
-          <ul className="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
-            {pendingInvites.map((p) => {
-              const sendCount = p.emailSendCount ?? 0;
-              const rowBusy = actionBusy === p.tokenId;
-              const anyBusy = actionBusy !== null;
-              return (
-                <li
-                  key={p.tokenId}
-                  className="flex items-center justify-between px-3 py-2 gap-2 text-xs"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-gray-900 dark:text-gray-100 truncate">
-                      {p.inviteeEmail}
-                    </div>
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {p.role}
-                      {p.lastEmailSentAt
-                        ? ` · sent ${formatDate(p.lastEmailSentAt)} (${sendCount}/5)`
-                        : ` · sent (${sendCount}/5)`}
-                      {p.expiresAt ? ` · expires ${formatDate(p.expiresAt)}` : ''}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {p.role === 'editor' && (
-                      <label className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
-                        <input
-                          type="checkbox"
-                          checked={p.isVoting}
-                          onChange={(e) => handleTogglePendingVoting(p.tokenId, e.target.checked)}
-                          disabled={anyBusy}
-                          aria-label={`Toggle voting rights for ${p.inviteeEmail}`}
-                        />
-                        Voting
-                      </label>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleResendInvite(p.tokenId)}
-                      disabled={anyBusy}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
-                      aria-label={`Resend invitation to ${p.inviteeEmail}`}
-                    >
-                      {rowBusy ? 'Working…' : 'Resend'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRevokeInvite(p.tokenId)}
-                      disabled={anyBusy}
-                      className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
-                      aria-label={`Revoke invitation to ${p.inviteeEmail}`}
-                    >
-                      Revoke
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+      {INVITATIONS_ENABLED && (
+        <PendingInvitesList
+          pendingInvites={pendingInvites}
+          actionBusy={actionBusy}
+          onResend={handleResendInvite}
+          onToggleVoting={handleTogglePendingVoting}
+          onRevoke={handleRevokeInvite}
+        />
       )}
     </div>
   );
