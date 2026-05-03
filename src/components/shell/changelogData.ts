@@ -9,6 +9,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.12.2',
+    date: '2026-05-02',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Cross-user invitation-roster leak on shared browsers. The Sharing section\'s blue success panel (showing every email in added/invited/failed) was held in component-local React state and survived sign-out, because the component returns null on sign-out without unmounting. The next signer-in who opened a model they own would briefly see the previous user\'s invitation list. Added a useEffect keyed on user?.uid that resets the leakable state whenever the signed-in user changes. Restores the signOutCleanupRegistry invariant established in v0.7.2',
+        ],
+      },
+      {
+        title: 'Internal',
+        items: [
+          'Replaced firestore.rules with a pointer comment and deleted firestore.rules.merged. The checked-in rules file held a stale partial copy of the AHP-specific rules and was missing the entire suite-wide invitation infrastructure (spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits, spertsuite_notification_throttle). Anyone treating it as the source of truth and paste-replacing it into the Firebase Console would have silently erased the suite-wide rules. The pointer names spert-landing-page/firestore.rules and the Firebase Console as the live source of truth',
+          'Documented intentionally-preserved localStorage keys in performSignOutWithCleanup. ahp/sessionUserId and ahp/workspaceId are random browser-scoped opaque identifiers used as _originRef fingerprints by migration.ts; clearing them would break workspace continuity for repeated local→cloud migrations on the same device',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.12.1',
     date: '2026-05-02',
     sections: [

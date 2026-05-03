@@ -82,6 +82,20 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
     void refreshPending();
   }, [refreshPending]);
 
+  // Reset cross-user-leakable component state whenever the signed-in
+  // user changes (sign-out → sign-in on a shared browser). React keeps
+  // this Fiber mounted across the auth transition because the early
+  // return below renders null without unmounting; without this effect,
+  // lastResult and bulkEmails would persist and disclose the previous
+  // user's invitation roster to the next signer-in.
+  useEffect(() => {
+    setLastResult(null);
+    setBulkEmails('');
+    setEmail('');
+    setError(null);
+    setPendingInvites([]);
+  }, [user?.uid]);
+
   if (mode !== 'cloud' || !user || !ahpState.modelId) return null;
   const currentRole = ahpState.collaborators.find((c) => c.userId === user.uid)?.role;
   if (currentRole !== 'owner') return null;
