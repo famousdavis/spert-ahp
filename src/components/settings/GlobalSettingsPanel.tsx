@@ -55,6 +55,7 @@ export default function GlobalSettingsPanel() {
               value={attribution.name}
               onChange={(e) => handleAttributionChange('name', e.target.value)}
               placeholder="e.g., Jane Smith"
+              autoComplete="name"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
             />
           </div>

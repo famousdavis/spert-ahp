@@ -1,5 +1,17 @@
 # SPERT® AHP — Changelog
 
+## v0.13.1 (May 3, 2026)
+
+Hardening pass — three latent issues identified, two fixed in code and one documented.
+
+### Fixed
+- **`onSnapshot` listener now logs Firestore stream errors.** `FirestoreAdapter.subscribeModel` previously passed only a success callback to `onSnapshot`, so a transient permission revocation, network failure, or rules-eval rejection on the live model document would terminate the subscription silently with no diagnostic. Added an error callback that logs the Firebase error code and message with a `[FirestoreAdapter] subscribeModel error for {modelId}:` prefix matching the existing console-error style in `AuthContext.writeUserProfile`. No tracking-set cleanup was needed — the single subscription is owned by `useAHP`'s `useEffect` and torn down via React cleanup, not via a `Set` of active doc IDs.
+- **`autoComplete` props on two form inputs.** Added `autoComplete="off"` to the collaborator-email input in `SharingSection.tsx` (the field collects *another* user's email, so the signer-in's saved email should not autofill). Added `autoComplete="name"` to the Export Attribution name input in `GlobalSettingsPanel.tsx` (the field collects the user's *own* name for export-metadata stamping). All other text inputs in the codebase carry app-domain labels (decision titles, criterion names, alternative names, identifier example-format hints) and are correctly excluded.
+
+### Out of scope (flagged, not done)
+- **Centralized error-notification surface.** A handful of Firestore writes — specifically the fire-and-forget profile updates in `AuthContext.writeUserProfile` (lines 123 and 126) — log failures to console only and never reach the user. Wiring them to a user-visible toast/banner would require introducing a notification provider that does not currently exist anywhere in the app (every other surfaced error is held in component-local React state and rendered as an inline banner). Building one as a side effect of a hardening pass is out of scope; logged for future work.
+- No dependency upgrades.
+
 ## v0.12.2 (May 2, 2026)
 
 Security audit pass. No exploitable vulnerabilities in the deployed surface; three application-side hardening fixes shipped here. Two lower-severity findings in the landing-page Cloud Functions (invitation-token and modelId logged at info/warn) are tracked separately and will ship in a landing-page release.

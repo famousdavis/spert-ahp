@@ -340,6 +340,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@example.com"
               disabled={busy}
+              autoComplete="off"
               className="flex-1 min-w-[12rem] px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
             />
             <select
