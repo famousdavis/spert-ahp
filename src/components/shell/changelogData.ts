@@ -9,6 +9,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.13.2',
+    date: '2026-05-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Every form control now has an id or name attribute. Added semantic camelCase name attributes to 17 inputs/textareas/selects across GlobalSettingsPanel, DecisionPanel, ItemBuilder, ThresholdConfigurator, SharingSection, ManagePanel, PendingInvitesList, DashboardPanel, ConsentModal, and ComparisonInput. Reused name values across visually distinct inputs are documented (itemLabel per SortableItem, newItemLabel across both ItemBuilder instances, pre-existing storage-mode for the radio group) — none coexist inside a real form element',
+          'Every visible label is now associated with its input. Added htmlFor + id pairs (generated via React.useId()) on six label/input couples: GlobalSettingsPanel Name + Identifier, DecisionPanel Title + Goal, ThresholdConfigurator Agreement + Mild range sliders. The codebase had zero prior htmlFor usage, so the new pattern is established cleanly',
+          'Decorative label in ItemBuilder converted to a div. The group heading "Decision Factors (N)" / "Alternatives (N)" was rendered as a label element despite labelling no specific input — Chrome flagged this as "No label associated with a form field"',
+          'aria-label added to controls without visible labels (in passing while touching them for name/id): legacy invite email + role select in SharingSection, per-collaborator role select + voting checkbox, both ItemBuilder add-item inputs and the SortableItem rename input (passed itemLabel prop down so the aria-label reads e.g. "Decision Factor 1 label"), and the ComparisonInput range slider (uses existing mode/itemA/itemB props)',
+        ],
+      },
+      {
+        title: 'Out of scope (flagged, not done)',
+        items: [
+          'No new shared Field/FormField wrapper component. The codebase has none, and per-call-site edits are the lighter touch',
+          'App-domain text inputs (decision titles, criterion/alternative names, threshold values, mixed-format identifier hints) deliberately did not get autoComplete — they don\'t collect a personal-data category the browser knows how to autofill',
+          'No dependency upgrades',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.13.1',
     date: '2026-05-03',
     sections: [

@@ -21,11 +21,12 @@ function GripIcon() {
 interface SortableItemProps {
   item: StructuredItem;
   index: number;
+  itemLabel: string;
   onUpdateLabel: (label: string) => void;
   onRemove: () => void;
 }
 
-function SortableItem({ item, index, onUpdateLabel, onRemove }: SortableItemProps) {
+function SortableItem({ item, index, itemLabel, onUpdateLabel, onRemove }: SortableItemProps) {
   const [localLabel, setLocalLabel] = useState(item.label);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -60,9 +61,11 @@ function SortableItem({ item, index, onUpdateLabel, onRemove }: SortableItemProp
       <span className="text-xs text-gray-400 dark:text-gray-500 w-6">{index + 1}.</span>
       <input
         type="text"
+        name="itemLabel"
         value={localLabel}
         onChange={(e) => setLocalLabel(e.target.value)}
         onBlur={() => { if (localLabel !== item.label) onUpdateLabel(localLabel); }}
+        aria-label={`${itemLabel} ${index + 1} label`}
         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
       />
       <button
@@ -127,9 +130,9 @@ export default function ItemBuilder({ items, onChange, itemLabel, hasComparisons
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <div className="block text-sm font-medium text-gray-700 dark:text-gray-300">
         {`${itemLabel}s`} ({items.length})
-      </label>
+      </div>
 
       <DndContext
         sensors={sensors}
@@ -142,6 +145,7 @@ export default function ItemBuilder({ items, onChange, itemLabel, hasComparisons
               key={item.id}
               item={item}
               index={i}
+              itemLabel={itemLabel}
               onUpdateLabel={(label) => updateLabel(i, label)}
               onRemove={() => removeItem(i)}
             />
@@ -152,10 +156,12 @@ export default function ItemBuilder({ items, onChange, itemLabel, hasComparisons
       <div className="flex gap-2">
         <input
           type="text"
+          name="newItemLabel"
           value={newLabel}
           onChange={(e) => setNewLabel(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addItem()}
           placeholder={`Add ${itemLabel.toLowerCase()}...`}
+          aria-label={`Add ${itemLabel.toLowerCase()}`}
           className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
         />
         <button

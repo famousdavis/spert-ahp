@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { DISAGREEMENT_PRESETS } from '../../core/models/constants';
 import type { DisagreementConfig, ModelDoc } from '../../types/ahp';
 
@@ -7,6 +8,10 @@ interface ThresholdConfiguratorProps {
 }
 
 export default function ThresholdConfigurator({ config, onUpdate }: ThresholdConfiguratorProps) {
+  const fieldId = useId();
+  const agreementId = `${fieldId}-agreement`;
+  const mildId = `${fieldId}-mild`;
+
   if (!config) return null;
 
   const thresholds = config.thresholds ?? DISAGREEMENT_PRESETS['standard']!;
@@ -53,10 +58,12 @@ export default function ThresholdConfigurator({ config, onUpdate }: ThresholdCon
 
       <div className="space-y-3">
         <div>
-          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+          <label htmlFor={agreementId} className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
             Agreement threshold: {(thresholds.agreement * 100).toFixed(0)}%
           </label>
           <input
+            id={agreementId}
+            name="agreementThreshold"
             type="range"
             min={0}
             max={50}
@@ -66,10 +73,12 @@ export default function ThresholdConfigurator({ config, onUpdate }: ThresholdCon
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+          <label htmlFor={mildId} className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
             Mild disagreement threshold: {(thresholds.mild * 100).toFixed(0)}%
           </label>
           <input
+            id={mildId}
+            name="mildDisagreementThreshold"
             type="range"
             min={0}
             max={100}

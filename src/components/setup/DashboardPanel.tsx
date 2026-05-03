@@ -167,6 +167,7 @@ export default function DashboardPanel({ ahpState, userId, onDecisionOpened }: D
           <input
             ref={fileInputRef}
             type="file"
+            name="importJsonFile"
             accept="application/json,.json"
             onChange={(e) => { void handleFileChange(e); }}
             className="hidden"

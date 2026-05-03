@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import StorageSection from './StorageSection';
 
 export const ATTRIBUTION_KEY = 'ahp/exportAttribution';
@@ -24,6 +24,9 @@ function saveAttribution(value: ExportAttribution): void {
 
 export default function GlobalSettingsPanel() {
   const [attribution, setAttribution] = useState<ExportAttribution>(loadAttribution);
+  const fieldId = useId();
+  const nameId = `${fieldId}-name`;
+  const identifierId = `${fieldId}-identifier`;
 
   const handleAttributionChange = (field: keyof ExportAttribution, value: string) => {
     const next = { ...attribution, [field]: value };
@@ -47,10 +50,12 @@ export default function GlobalSettingsPanel() {
         </p>
         <div className="space-y-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={nameId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Name
             </label>
             <input
+              id={nameId}
+              name="exportAttributionName"
               type="text"
               value={attribution.name}
               onChange={(e) => handleAttributionChange('name', e.target.value)}
@@ -60,10 +65,12 @@ export default function GlobalSettingsPanel() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={identifierId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Identifier
             </label>
             <input
+              id={identifierId}
+              name="exportAttributionIdentifier"
               type="text"
               value={attribution.identifier}
               onChange={(e) => handleAttributionChange('identifier', e.target.value)}

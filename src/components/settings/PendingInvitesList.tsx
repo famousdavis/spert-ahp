@@ -57,6 +57,7 @@ export default function PendingInvitesList({
                   <label className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
                     <input
                       type="checkbox"
+                      name="pendingInviteVoting"
                       checked={p.isVoting}
                       onChange={(e) => onToggleVoting(p.tokenId, e.target.checked)}
                       disabled={anyBusy}
