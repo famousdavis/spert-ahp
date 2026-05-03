@@ -93,6 +93,7 @@ export default function ConsentModal({ onAccept, onCancel }: ConsentModalProps) 
           <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
             <input
               type="checkbox"
+              name="consentAgreed"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
               className="mt-0.5 accent-blue-600"

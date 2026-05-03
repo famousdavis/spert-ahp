@@ -287,6 +287,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
             new emails receive a one-time invitation link (expires in 30 days).
           </p>
           <textarea
+            name="bulkInviteEmails"
             value={bulkEmails}
             onChange={(e) => setBulkEmails(e.target.value)}
             placeholder="alice@example.com, bob@example.com&#10;carol@example.com"
@@ -297,6 +298,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
           />
           <div className="flex items-center gap-2 flex-wrap">
             <select
+              name="bulkInviteRole"
               value={role}
               onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
               disabled={busy}
@@ -310,6 +312,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
               <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
                 <input
                   type="checkbox"
+                  name="bulkInviteIsVoting"
                   checked={isVoting}
                   onChange={(e) => setIsVoting(e.target.checked)}
                   disabled={busy}
@@ -336,17 +339,21 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
           <div className="flex gap-2 flex-wrap items-center">
             <input
               type="email"
+              name="legacyInviteEmail"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@example.com"
               disabled={busy}
               autoComplete="off"
+              aria-label="Collaborator email"
               className="flex-1 min-w-[12rem] px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
             />
             <select
+              name="legacyInviteRole"
               value={role}
               onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
               disabled={busy}
+              aria-label="Role for invitee"
               className="px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm"
             >
               <option value="editor">Editor</option>
@@ -356,6 +363,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
               <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
                 <input
                   type="checkbox"
+                  name="legacyInviteIsVoting"
                   checked={isVoting}
                   onChange={(e) => setIsVoting(e.target.checked)}
                   disabled={busy}
@@ -404,9 +412,11 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
               ) : (
                 <>
                   <select
+                    name="collaboratorRole"
                     value={c.role}
                     onChange={(e) => handleRoleChange(c.userId, e.target.value as CollaboratorRole)}
                     disabled={busy}
+                    aria-label={`Role for ${profileMap[c.userId]?.displayName || c.userId.slice(0, 8)}`}
                     className="text-xs px-1 py-0.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded"
                   >
                     <option value="editor">Editor</option>
@@ -416,9 +426,11 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
                     <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                       <input
                         type="checkbox"
+                        name="collaboratorIsVoting"
                         checked={c.isVoting}
                         onChange={(e) => handleToggleVoting(c.userId, e.target.checked)}
                         disabled={busy}
+                        aria-label={`Voting rights for ${profileMap[c.userId]?.displayName || c.userId.slice(0, 8)}`}
                       />
                       Voting
                     </label>

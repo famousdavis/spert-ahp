@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import ItemBuilder from './ItemBuilder';
 import TierSelector from './TierSelector';
 import type { UseAHPReturn, CompletionTier } from '../../types/ahp';
@@ -17,6 +17,9 @@ export default function DecisionPanel({ ahpState }: DecisionPanelProps) {
   const modelGoal = ahpState.model?.goal ?? '';
   const [titleDraft, setTitleDraft] = useState(modelTitle);
   const [goalDraft, setGoalDraft] = useState(modelGoal);
+  const fieldId = useId();
+  const titleId = `${fieldId}-title`;
+  const goalId = `${fieldId}-goal`;
 
   // Resync drafts if the model changes from outside this panel
   // (e.g., another collaborator edits, or the user opens a different
@@ -52,8 +55,10 @@ export default function DecisionPanel({ ahpState }: DecisionPanelProps) {
     <div className="space-y-8">
       <div className="space-y-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+          <label htmlFor={titleId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
           <input
+            id={titleId}
+            name="decisionTitle"
             type="text"
             value={titleDraft}
             onChange={(e) => setTitleDraft(e.target.value)}
@@ -63,8 +68,10 @@ export default function DecisionPanel({ ahpState }: DecisionPanelProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Goal</label>
+          <label htmlFor={goalId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Goal</label>
           <textarea
+            id={goalId}
+            name="decisionGoal"
             value={goalDraft}
             onChange={(e) => setGoalDraft(e.target.value)}
             onBlur={commitGoal}

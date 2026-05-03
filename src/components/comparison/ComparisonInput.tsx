@@ -174,10 +174,12 @@ export default function ComparisonInput({
         {/* Slider thumb — below bars */}
         <input
           type="range"
+          name="comparisonSlider"
           min={-8}
           max={8}
           value={sliderValue}
           onChange={(e) => onChange(sliderToStored(Number(e.target.value)))}
+          aria-label={`${mode === 'importance' ? 'Importance' : 'Preference'} comparison: ${itemA} vs ${itemB}`}
           className="comparison-slider w-full absolute left-0"
           style={{
             '--thumb-color': thumbColor,

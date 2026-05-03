@@ -1,5 +1,20 @@
 # SPERT® AHP — Changelog
 
+## v0.13.2 (May 3, 2026)
+
+Form-hygiene residual sweep. After v0.13.1 added the two strictly-required `autoComplete` props, this pass closes the rest of the Chrome DevTools Issues panel form-field warnings — every `<input>`, `<textarea>`, and `<select>` in the app now carries an `id` or `name`, every visible `<label>` is associated with its control via `htmlFor`+`useId()` or implicit wrapping, and every form control without a visible label has an `aria-label`.
+
+### Fixed
+- **Every form control now has `id` or `name`.** Added `name` (semantic camelCase) to 17 inputs/textareas/selects across `GlobalSettingsPanel`, `DecisionPanel`, `ItemBuilder`, `ThresholdConfigurator`, `SharingSection`, `ManagePanel`, `PendingInvitesList`, `DashboardPanel`, `ConsentModal`, and `ComparisonInput`. Reused `name` values across visually distinct inputs are documented (`itemLabel` per SortableItem, `newItemLabel` across both ItemBuilder instances, pre-existing `storage-mode` for the radio group) — none coexist inside a real `<form>`.
+- **Every visible `<label>` is now associated with its input.** Added `htmlFor` + `id` pairs (generated via `React.useId()`) on six label/input couples: `GlobalSettingsPanel` Name + Identifier, `DecisionPanel` Title + Goal, `ThresholdConfigurator` Agreement + Mild range sliders. The codebase had zero prior `htmlFor` usage, so the new pattern is established cleanly.
+- **Decorative `<label>` in `ItemBuilder` converted to `<div>`.** The group heading "Decision Factors (N)" / "Alternatives (N)" was rendered as `<label>` despite labelling no specific input — Chrome flagged this as "No label associated with a form field." Now a `<div>`.
+- **`aria-label` added to controls without visible labels** (in passing while touching them for `name`/`id`): legacy invite email + role select in `SharingSection`, per-collaborator role select + voting checkbox, both `ItemBuilder` add-item inputs and the SortableItem rename input (passed `itemLabel` prop down so the aria-label can read e.g. "Decision Factor 1 label"), and the `ComparisonInput` range slider (uses existing `mode`/`itemA`/`itemB` props for "Importance comparison: Cost vs Schedule").
+
+### Out of scope (flagged, not done)
+- No new shared `Field`/`FormField` wrapper component. The codebase has none, and per-call-site edits are the lighter touch.
+- App-domain text inputs (decision titles, criterion/alternative names, threshold values, mixed-format identifier hints) deliberately did not get `autoComplete` — they don't collect a personal-data category the browser knows how to autofill.
+- No dependency upgrades.
+
 ## v0.13.1 (May 3, 2026)
 
 Hardening pass — three latent issues identified, two fixed in code and one documented.

@@ -98,6 +98,7 @@ export default function ManagePanel({ ahpState }: ManagePanelProps) {
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
+              name="showAggregatedToVoters"
               checked={visibility.showAggregatedToVoters}
               onChange={(e) => updateVisibility({ showAggregatedToVoters: e.target.checked })}
             />
@@ -106,6 +107,7 @@ export default function ManagePanel({ ahpState }: ManagePanelProps) {
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
+              name="showOwnRankingsToVoters"
               checked={visibility.showOwnRankingsToVoters}
               onChange={(e) => updateVisibility({ showOwnRankingsToVoters: e.target.checked })}
             />
