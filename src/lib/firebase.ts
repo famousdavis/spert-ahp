@@ -1,6 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore';
 import { getAuth, type Auth } from 'firebase/auth';
+import { getFunctions, httpsCallable, type Functions, type HttpsCallable } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
@@ -16,6 +17,7 @@ const isFirebaseConfigured = Boolean(firebaseConfig.apiKey);
 let app: FirebaseApp | null = null;
 let dbInstance: Firestore | null = null;
 let authInstance: Auth | null = null;
+let functionsInstance: Functions | null = null;
 
 if (isFirebaseConfigured) {
   app = getApps().length === 0
@@ -25,8 +27,104 @@ if (isFirebaseConfigured) {
   // (GanttApp lesson — persistent cache retains stale permission_denied state)
   dbInstance = initializeFirestore(app, { localCache: memoryLocalCache() });
   authInstance = getAuth(app);
+  // Region must match the deployed Cloud Functions region (us-central1).
+  functionsInstance = getFunctions(app, 'us-central1');
 }
 
 export const db = dbInstance;
 export const auth = authInstance;
+export const functions = functionsInstance;
 export const isFirebaseAvailable = isFirebaseConfigured && app !== null;
+
+// ─── Cloud Function callables (suite-wide, shared spert-suite project) ───
+// Schemas defined in spert-landing-page/functions/src. Region us-central1.
+
+export interface SendInvitationEmailInput {
+  appId: 'spertahp';
+  modelId: string;
+  emails: string[];
+  role: 'editor' | 'viewer';
+  isVoting: boolean;
+}
+
+export interface SendInvitationEmailResult {
+  added: string[];
+  invited: string[];
+  failed: Array<{
+    email: string;
+    reason: 'invalid-email' | 'already-member' | 'already-invited' | 'send-failed';
+  }>;
+}
+
+export interface ClaimedInvitation {
+  appId: string;
+  modelId: string;
+  modelName: string;
+}
+
+export interface ClaimPendingInvitationsResult {
+  claimed: ClaimedInvitation[];
+}
+
+/**
+ * Lazily resolve a callable. Returns null when Firebase is not configured
+ * (local-mode dev / tests) so callers can guard cleanly without crashing.
+ */
+export function getSendInvitationEmail():
+  | HttpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>(
+    functionsInstance,
+    'sendInvitationEmail',
+  );
+}
+
+export function getClaimPendingInvitations():
+  | HttpsCallable<Record<string, never>, ClaimPendingInvitationsResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<Record<string, never>, ClaimPendingInvitationsResult>(
+    functionsInstance,
+    'claimPendingInvitations',
+  );
+}
+
+// ─── Revoke / Resend (Phase 3.5) ────────────────────────────
+
+export interface RevokeInviteInput {
+  tokenId: string;
+}
+
+export interface RevokeInviteResult {
+  revoked: true;
+}
+
+export interface ResendInviteInput {
+  tokenId: string;
+}
+
+export interface ResendInviteResult {
+  resent: true;
+  emailSendCount: number;
+}
+
+export function getRevokeInvite():
+  | HttpsCallable<RevokeInviteInput, RevokeInviteResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<RevokeInviteInput, RevokeInviteResult>(
+    functionsInstance,
+    'revokeInvite',
+  );
+}
+
+export function getResendInvite():
+  | HttpsCallable<ResendInviteInput, ResendInviteResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<ResendInviteInput, ResendInviteResult>(
+    functionsInstance,
+    'resendInvite',
+  );
+}

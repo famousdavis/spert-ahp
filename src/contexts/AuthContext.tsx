@@ -14,7 +14,8 @@ import {
   type User,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, isFirebaseAvailable } from '../lib/firebase';
+import { auth, db, isFirebaseAvailable, getClaimPendingInvitations } from '../lib/firebase';
+import { INVITATIONS_ENABLED } from '../lib/featureFlags';
 import {
   TOS_VERSION,
   APP_ID,
@@ -105,21 +106,58 @@ async function checkReturningUserConsent(user: User): Promise<boolean> {
 /**
  * Write or update the per-app profile document used for sharing UI email
  * lookups. Non-blocking — sharing UI is a secondary feature.
+ *
+ * v0.11.0: also mirrors the same payload into the suite-wide
+ * spertsuite_profiles/{uid} collection so cross-app invitations from
+ * the other SPERT apps (Gantt, Scheduler, etc.) can resolve email→uid
+ * server-side. Both writes use { merge: true } and are fire-and-forget.
  */
 function writeUserProfile(user: User): void {
   if (!db) return;
-  void setDoc(
-    doc(db, 'spertahp_profiles', user.uid),
-    {
-      displayName: user.displayName ?? '',
-      email: user.email ?? '',
-      photoURL: user.photoURL ?? null,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  ).catch((err) => {
+  const payload = {
+    displayName: user.displayName ?? '',
+    email: (user.email ?? '').toLowerCase(),
+    photoURL: user.photoURL ?? null,
+    updatedAt: serverTimestamp(),
+  };
+  void setDoc(doc(db, 'spertahp_profiles', user.uid), payload, { merge: true }).catch((err) => {
     console.error('Failed to update profile:', (err as { code?: string }).code ?? 'unknown');
   });
+  void setDoc(doc(db, 'spertsuite_profiles', user.uid), payload, { merge: true }).catch((err) => {
+    console.error(
+      'Failed to update suite profile:',
+      (err as { code?: string }).code ?? 'unknown',
+    );
+  });
+}
+
+/**
+ * Fire-and-forget call to the claimPendingInvitations Cloud Function.
+ * Idempotent — safe on every auth resolution (Branch A and Branch B).
+ * On success, dispatches a window-level `spert:models-changed` event so
+ * any mounted ModelSetup re-runs listModels() and the freshly-claimed
+ * project appears immediately. Failures are logged silently — the user
+ * can still claim later (or reload).
+ */
+function claimPendingInvitationsAndNotify(): void {
+  if (!INVITATIONS_ENABLED) return;
+  const callable = getClaimPendingInvitations();
+  if (!callable) return;
+  void callable({})
+    .then((res) => {
+      const claimed = res.data?.claimed ?? [];
+      if (claimed.length > 0 && typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('spert:models-changed', { detail: { claimed } }),
+        );
+      }
+    })
+    .catch((err) => {
+      console.error(
+        'claimPendingInvitations failed:',
+        (err as { code?: string }).code ?? 'unknown',
+      );
+    });
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -158,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         consumeWritePending();
         writeUserProfile(firebaseUser);
+        claimPendingInvitationsAndNotify();
         recordLocalAcceptance();
         setUser(firebaseUser);
         setLoading(false);
@@ -166,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (hasAcceptedCurrentTos()) {
           // Fast path: local cache matches current version
           writeUserProfile(firebaseUser);
+          claimPendingInvitationsAndNotify();
           setUser(firebaseUser);
           setLoading(false);
         } else {
@@ -173,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const isValid = await checkReturningUserConsent(firebaseUser);
           if (isValid) {
             writeUserProfile(firebaseUser);
+            claimPendingInvitationsAndNotify();
             setUser(firebaseUser);
             setLoading(false);
           } else {

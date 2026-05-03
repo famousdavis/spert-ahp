@@ -8,6 +8,7 @@ import ComparisonPanel from './components/comparison/ComparisonPanel';
 import ResultsPanel from './components/results/ResultsPanel';
 import ProjectSettingsPanel from './components/settings/ProjectSettingsPanel';
 import GlobalSettingsPanel from './components/settings/GlobalSettingsPanel';
+import InvitationBanner from './components/shell/InvitationBanner';
 import { useUserId } from './hooks/useUserId';
 import { useAHP } from './hooks/useAHP';
 import { useTheme } from './hooks/useTheme';
@@ -126,6 +127,7 @@ export default function App() {
 
       <main className="flex-1 p-6">
         <div className={isTab ? 'max-w-4xl mx-auto' : ''}>
+          <InvitationBanner />
           {renderContent()}
         </div>
       </main>

@@ -43,6 +43,20 @@ export default function ModelSetup({ ahpState, userId }: ModelSetupProps) {
     }
   }, [hasModel, ahpState.storage]);
 
+  // Re-fetch the model list when AuthContext claims pending invitations.
+  // The custom event is dispatched after a successful claim so newly
+  // shared projects appear without a manual reload. Only matters on the
+  // saved-decisions screen (hasModel === false); inside an open model
+  // the user already chose what to look at.
+  useEffect(() => {
+    if (hasModel) return;
+    const onChanged = () => {
+      void ahpState.storage.listModels().then(setSavedModels);
+    };
+    window.addEventListener('spert:models-changed', onChanged);
+    return () => window.removeEventListener('spert:models-changed', onChanged);
+  }, [hasModel, ahpState.storage]);
+
   const handleCreate = () => {
     if (!title.trim()) return;
     void ahpState.createModel(title.trim(), goal.trim());

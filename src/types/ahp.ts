@@ -307,6 +307,35 @@ export interface AHPExportEnvelope {
   synthesis: SynthesisBundle | null;
 }
 
+// ─── Invitations (v0.11.0, suite-wide collection) ────────────
+
+export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+/**
+ * Mirrors a spertsuite_invitations/{tokenId} document.
+ * tokenId is the document id and is not redundantly stored on the doc itself.
+ */
+export interface PendingInvite {
+  tokenId: string;
+  appId: 'spertahp' | string;
+  modelId: string;
+  modelName: string;
+  inviteeEmail: string;
+  role: CollaboratorRole;
+  isVoting: boolean;
+  inviterUid: string;
+  inviterName: string;
+  inviterEmail: string;
+  status: InvitationStatus;
+  createdAt: number;
+  expiresAt: number;
+  lastEmailSentAt: number;
+  emailSendCount: number;
+  updatedAt: number;
+  acceptedAt?: number;
+  acceptedByUid?: string;
+}
+
 // ─── Storage Interface ───────────────────────────────────────
 
 export interface StorageAdapter {
@@ -321,6 +350,13 @@ export interface StorageAdapter {
   addCollaborator(modelId: string, collaboratorDoc: CollaboratorDoc): Promise<void>;
   getCollaborators(modelId: string): Promise<CollaboratorDoc[]>;
   updateCollaborator(modelId: string, userId: string, partial: Partial<CollaboratorDoc>): Promise<void>;
+  /**
+   * Remove a collaborator from a model. Updates both the embedded
+   * collaborators array and the members map atomically. Replaces the
+   * direct updateDoc bypass that previously lived in SharingSection.
+   * Local-mode is a no-op stub (sharing is cloud-only).
+   */
+  removeCollaborator(modelId: string, userId: string): Promise<void>;
   getResponse(modelId: string, userId: string): Promise<ResponseDoc | null>;
   createResponse(modelId: string, responseDoc: ResponseDoc): Promise<void>;
   updateResponse(modelId: string, userId: string, partial: Partial<ResponseDoc>): Promise<void>;
@@ -335,6 +371,25 @@ export interface StorageAdapter {
   /** Persists user-defined display order for the saved-decisions list.
    *  `orderedIds` is the new ordering; each entry's index becomes its `order`. */
   reorderModels(orderedIds: string[]): Promise<void>;
+  /**
+   * List pending invitations for a model owned by the caller. Reads
+   * spertsuite_invitations directly via the owner-branch security rule
+   * (inviterUid == request.auth.uid). Returns only status === 'pending'.
+   * Local-mode returns an empty array.
+   */
+  listPendingInvites(modelId: string): Promise<PendingInvite[]>;
+  /**
+   * Soft-revoke a pending invitation. Server marks status='revoked'
+   * (no delete). Caller must be the inviter. Local-mode is a no-op.
+   */
+  revokeInvite(tokenId: string): Promise<void>;
+  /**
+   * Re-send a pending invitation email. Server enforces a hard cap of
+   * 5 sends per invitation; bumping past the cap returns
+   * resource-exhausted. Caller must be the inviter. Local-mode is a
+   * no-op.
+   */
+  resendInvite(tokenId: string): Promise<void>;
 }
 
 // ─── useAHP State ────────────────────────────────────────────

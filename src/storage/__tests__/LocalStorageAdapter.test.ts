@@ -7,6 +7,7 @@ import {
   createCollaboratorDoc,
   createResponseDoc,
 } from '../../core/models/AHPModel';
+import type { CollaboratorDoc } from '../../types/ahp';
 
 describe('LocalStorageAdapter', () => {
   let adapter: LocalStorageAdapter;
@@ -245,6 +246,42 @@ describe('LocalStorageAdapter', () => {
   describe('schema version', () => {
     it('sets schema version on construction', () => {
       expect(localStorage.getItem('ahp/schemaVersion')).toBe('1');
+    });
+  });
+
+  // ─── Invitations (cloud-only stubs) ────────────────────────
+
+  describe('invitation stubs', () => {
+    it('listPendingInvites returns empty array (no cloud invites in local mode)', async () => {
+      expect(await adapter.listPendingInvites('m1')).toEqual([]);
+    });
+
+    it('revokeInvite is a silent no-op in local mode', async () => {
+      await expect(adapter.revokeInvite('any-token-id')).resolves.toBeUndefined();
+    });
+
+    it('resendInvite is a silent no-op in local mode', async () => {
+      await expect(adapter.resendInvite('any-token-id')).resolves.toBeUndefined();
+    });
+
+    it('removeCollaborator drops the doc and prunes the list', async () => {
+      const meta = createModelDoc('Test', 'Goal', 'owner');
+      await adapter.createModel('m1', meta, createStructureDoc());
+      const collab: CollaboratorDoc = createCollaboratorDoc('alice', 'editor', true);
+      await adapter.addCollaborator('m1', collab);
+
+      expect((await adapter.getCollaborators('m1')).map((c) => c.userId)).toEqual([
+        'alice',
+      ]);
+      await adapter.removeCollaborator('m1', 'alice');
+      expect(await adapter.getCollaborators('m1')).toEqual([]);
+    });
+
+    it('removeCollaborator is a no-op for unknown users', async () => {
+      const meta = createModelDoc('Test', 'Goal', 'owner');
+      await adapter.createModel('m1', meta, createStructureDoc());
+      // Should not throw even though no collaborators exist.
+      await expect(adapter.removeCollaborator('m1', 'ghost')).resolves.toBeUndefined();
     });
   });
 });

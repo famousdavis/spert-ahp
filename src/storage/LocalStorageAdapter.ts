@@ -10,6 +10,7 @@ import type {
   ComparisonMap,
   SynthesisBundle,
   AHPExportBundle,
+  PendingInvite,
 } from '../types/ahp';
 
 const PREFIX = 'ahp';
@@ -250,6 +251,16 @@ export class LocalStorageAdapter implements StorageAdapter {
     setJSON(k, { ...current, ...partial });
   }
 
+  async removeCollaborator(modelId: string, userId: string): Promise<void> {
+    // Sharing is cloud-only, but we still keep local-mode behavior
+    // consistent so dev tooling and tests don't crash. Drop the
+    // collaborator doc and prune the index list.
+    removeKey(key('models', modelId, 'collaborators', userId));
+    const listKey = key('models', modelId, 'collaboratorList');
+    const list = getJSON<string[]>(listKey) ?? [];
+    setJSON(listKey, list.filter((id) => id !== userId));
+  }
+
   // ─── Responses ──────────────────────────────────────────────────
 
   async getResponse(modelId: string, userId: string): Promise<ResponseDoc | null> {
@@ -342,6 +353,21 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   subscribeModel(_modelId: string, _callback: (data: unknown) => void): () => void {
     return () => {};
+  }
+
+  // ─── Pending invitations (cloud-only feature) ─────────────────
+
+  async listPendingInvites(_modelId: string): Promise<PendingInvite[]> {
+    // Invitations are a cloud-only feature; local mode has no inbox.
+    return [];
+  }
+
+  async revokeInvite(_tokenId: string): Promise<void> {
+    // Cloud-only; local mode silently no-ops.
+  }
+
+  async resendInvite(_tokenId: string): Promise<void> {
+    // Cloud-only; local mode silently no-ops.
   }
 
   // ─── Internal helpers ──────────────────────────────────────────

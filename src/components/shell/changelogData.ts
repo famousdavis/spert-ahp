@@ -9,6 +9,38 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.11.0',
+    date: '2026-05-02',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Email-based bulk invitations. Owners can paste a list of emails into the Sharing section; existing SPERT users are added immediately, new emails receive a one-time invitation link (30-day expiration) that they claim by signing in with the matching email. Up to 25 invitations per UTC day per inviter',
+          'Resend & Revoke buttons on pending invitations. Each pending row shows the current send count as (N/5) for cap visibility; Resend re-delivers the invitation email (capped at 5 per invitation), Revoke soft-revokes so the link can no longer be claimed',
+          'Pre-auth invitation banner. First-time recipients clicking an invitation link see a dismissible banner with branded "Sign in with Google" / "Sign in with Microsoft" CTAs; after sign-in, the shared decision appears immediately and the banner transitions to a "you\'ve been added" confirmation',
+          'Auto-switch to cloud mode when AHP detects an ?invite= URL. New users landing from email no longer get stuck in local mode',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'SharingSection error mapping is now context-aware: shared Firebase error codes (resource-exhausted, permission-denied, failed-precondition, not-found) render appropriate copy per call site (send vs resend vs revoke)',
+          'removeCollaborator routed through the StorageAdapter; the previous inline updateDoc bypass is gone. Embedded collaborators array and members map are updated atomically',
+          'Suite-wide profile mirror: AuthContext now writes to both spertahp_profiles and spertsuite_profiles, enabling cross-app email-to-uid lookups',
+        ],
+      },
+      {
+        title: 'Infra',
+        items: [
+          'Five Cloud Functions live in us-central1 of spert-suite: sendInvitationEmail, claimPendingInvitations, revokeInvite, resendInvite (all callable v2 with cors:true and allUsers Cloud Run invoker), plus the scheduled expireInvitations',
+          'Origin-aware invitation URLs (strict allowlist + prod fallback); localhost dev calls produce localhost URLs',
+          'Microsoft AD "Last, First Middle" displayName normalization for clean RFC 5322 email From headers',
+          'Sender renamed noreply@ → invitations@spertsuite.com for Gmail deliverability',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.10.1',
     date: '2026-05-01',
     sections: [

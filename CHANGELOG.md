@@ -1,5 +1,24 @@
 # SPERT® AHP — Changelog
 
+## v0.11.0 (May 2, 2026)
+
+### Added
+- **Email-based bulk invitations.** Owners can now invite collaborators by pasting a comma/semicolon/newline-separated list of email addresses into the Sharing section of an owned decision. Existing SPERT users are added immediately; new emails receive a one-time invitation link (Resend-delivered, 30-day expiration) that they claim by signing in with the matching email. Up to 25 invitations per UTC day per inviter, enforced server-side.
+- **Resend & Revoke on pending invitations.** Each pending-invitation row in the Sharing section now has Resend and Revoke buttons. Resend re-delivers the invitation email (capped at 5 sends per invitation, server-enforced); Revoke soft-revokes the invitation (`status: revoked`) so the link can no longer be claimed. Row metadata shows current send count as `(N/5)` for cap visibility.
+- **Pre-auth invitation banner.** First-time recipients clicking an invitation link land on AHP and see a dismissible blue banner with branded "Sign in with Google" / "Sign in with Microsoft" CTAs. After sign-in, the freshly-claimed shared decision appears in their Decisions list and the banner transitions to a "you've been added to {decision name}" confirmation.
+- **Auto-switch to cloud mode on `?invite=` detection.** New users landing from an email link are unambiguously opting into shared-cloud, so AHP now flips storage mode from local to cloud automatically (cloud-availability gated). Without this, post-signin invitees would land in local mode and the shared decision would be invisible.
+
+### Changed
+- **`SharingSection` error mapping is context-aware.** `mapInvitationError(err, context)` now takes a `'send' | 'resend' | 'revoke'` discriminator so shared Firebase error codes (`resource-exhausted`, `permission-denied`, `failed-precondition`, `not-found`) render appropriate copy per call site. Without the discriminator, e.g. the per-day send cap message would leak into resend-cap errors.
+- **`removeCollaborator` routed through the StorageAdapter.** The previous inline `updateDoc` bypass in `SharingSection.handleRemove` is gone; both the embedded collaborators array and the `members` map are now updated atomically through the adapter. Behavior is unchanged in cloud mode; local mode keeps its no-op-safe stub.
+- **Suite-wide profile mirror.** `AuthContext.writeUserProfile` now writes to both `spertahp_profiles/{uid}` and `spertsuite_profiles/{uid}`, enabling cross-app email-to-uid lookups for invitations sent from any SPERT app.
+
+### Infra
+- **Five Cloud Functions live in `us-central1` of `spert-suite`** — `sendInvitationEmail`, `claimPendingInvitations`, `revokeInvite`, `resendInvite` (all callable v2 with `cors: true` and `allUsers` Cloud Run invoker), plus the scheduled `expireInvitations` (daily 03:00 UTC). Source canonicalized in the `spert-landing-page` repo.
+- **Origin-aware invitation URLs.** Cloud Functions read the request's Origin header against a strict allowlist (prod + known dev ports) and embed the matching URL base in invitation emails. Localhost calls produce localhost URLs; prod calls produce prod URLs; spoofed origins fall back to prod.
+- **Microsoft AD name normalization.** "Last, First Middle" displayName format from Microsoft work accounts is now normalized to "First Middle Last" before flowing into RFC 5322 email headers or the `inviterName` Firestore field. Without normalization, email From-line was malformed and rendered inconsistently across mail clients.
+- **Sender renamed `noreply@` → `invitations@spertsuite.com`** for deliverability. Reply-To still routes to the inviter; only the From local-part changed. Resolves Gmail-side `noreply` heuristic that silently dropped first-time deliveries to fresh inboxes.
+
 ## v0.10.1 (May 1, 2026)
 
 ### Changed
