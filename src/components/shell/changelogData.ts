@@ -9,6 +9,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.13.0',
+    date: '2026-05-02',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Tab bar restructured: Dashboard | Decision | Compare | Results | Manage | Settings | About. The old Decisions tab — which shape-shifted between a hub and a workspace depending on whether a model was open — has been split into Dashboard (always-visible hub) and Decision (always-visible workspace). The Project tab has been renamed Manage and still appears only when a decision is open',
+          'Dashboard redesigned as a responsive card grid with a + New Decision button in the header, mirroring the MyScrumBudget layout. Untitled drafts render with an italic "Untitled decision" placeholder so they are still browsable and deletable',
+          'Title and Goal moved from the Dashboard create-form into editable inputs at the top of the Decision tab. Inputs commit on blur via updateModel; they remain editable at any point in the decision lifecycle (owner discretion — small typos and refinements should not require a new decision)',
+          'Project Settings panel renamed to Decision Settings (Manage tab heading). Invitation-banner copy now reads "invited to a SPERT AHP decision" and "added to a shared decision" instead of "project"',
+        ],
+      },
+      {
+        title: 'Added',
+        items: [
+          'Auto-navigation when a decision is opened: clicking + New Decision, clicking a saved-decision card (including the currently-loaded one), or importing a JSON model now jumps the user straight to the Decision tab. Navigation is fired explicitly by DashboardPanel via an onDecisionOpened callback rather than a modelId-transition useEffect, so re-clicking the already-loaded card still navigates instead of silently no-op-ing',
+          'Empty-state guidance on Decision tab when no decision is open: "No decision open" heading plus a Go to Dashboard button. The previous bounce-on-empty guard was removed so the user can land on Decision without a model and see this guidance instead of being redirected away',
+        ],
+      },
+      {
+        title: 'Internal',
+        items: [
+          'Deleted ModelSetup.tsx and split it into DashboardPanel.tsx (hub: card grid, create/import/export) and DecisionPanel.tsx (workspace: editable title/goal, tier selector, criteria/alternatives builders). Each new component now has a single responsibility and a smaller surface',
+          'Renamed ProjectSettingsPanel.tsx → ManagePanel.tsx and updated its component/interface names to match. Updated the stale "any mounted ModelSetup re-runs listModels" doc-comment in AuthContext to point at DashboardPanel',
+          'Simplified the App.tsx auto-advance useEffect from a two-job transition detector (open + close) to a close-only fallback (truthy → null while on a model-scoped tab). Forward navigation is now handled by an explicit callback prop, which is more predictable and easier to reason about',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.12.2',
     date: '2026-05-02',
     sections: [
