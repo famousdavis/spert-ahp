@@ -12,7 +12,7 @@ import {
   onSnapshot,
   writeBatch,
 } from 'firebase/firestore';
-import { db, getRevokeInvite, getResendInvite } from '../lib/firebase';
+import { db, getRevokeInvite, getResendInvite, getUpdateInvite } from '../lib/firebase';
 import {
   serializeSynthesisForFirestore,
   deserializeSynthesisFromFirestore,
@@ -579,6 +579,19 @@ export class FirestoreAdapter implements StorageAdapter {
     const callable = getResendInvite();
     if (!callable) throw new Error('Cloud invitations are not configured.');
     await callable({ tokenId });
+  }
+
+  /**
+   * Update the isVoting flag on a pending invitation via the
+   * updateInvite Cloud Function. Caller must be the inviter; server
+   * rejects non-pending invitations with failed-precondition. Lets the
+   * owner correct voting rights before the invitee accepts, so the
+   * resulting CollaboratorDoc has the right isVoting from the start.
+   */
+  async updateInvite(tokenId: string, isVoting: boolean): Promise<void> {
+    const callable = getUpdateInvite();
+    if (!callable) throw new Error('Cloud invitations are not configured.');
+    await callable({ tokenId, isVoting });
   }
 }
 

@@ -123,6 +123,12 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
   // New (flag on) — bulk-paste textarea.
   const [bulkEmails, setBulkEmails] = useState('');
   const [role, setRole] = useState<'editor' | 'viewer'>('editor');
+  // v0.12.0: voting rights set at invite time so accepted collaborators
+  // land with the owner's intended isVoting from the moment of acceptance,
+  // closing the gap where editors could vote/edit before the owner toggled
+  // them off post-acceptance. Defaults to true (preserving v0.11.0 behavior);
+  // viewers always coerce to false in the submit path.
+  const [isVoting, setIsVoting] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<SendInvitationEmailResult | null>(null);
@@ -177,7 +183,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
       await ahpState.storage.addCollaborator(ahpState.modelId!, {
         userId: found.uid,
         role,
-        isVoting: role === 'editor',
+        isVoting: role === 'editor' ? isVoting : false,
       });
       await ahpState.loadModel(ahpState.modelId!);
       setEmail('');
@@ -213,7 +219,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
         modelId: ahpState.modelId!,
         emails,
         role,
-        isVoting: role === 'editor',
+        isVoting: role === 'editor' ? isVoting : false,
       });
       setLastResult(res.data);
       setBulkEmails('');
@@ -259,6 +265,19 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
     setError(null);
     try {
       await ahpState.storage.resendInvite(tokenId);
+      await refreshPending();
+    } catch (e) {
+      setError(mapInvitationError(e as FirebaseError, 'resend'));
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const handleTogglePendingVoting = async (tokenId: string, nextValue: boolean) => {
+    setActionBusy(tokenId);
+    setError(null);
+    try {
+      await ahpState.storage.updateInvite(tokenId, nextValue);
       await refreshPending();
     } catch (e) {
       setError(mapInvitationError(e as FirebaseError, 'resend'));
@@ -339,7 +358,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
             aria-label="Email addresses to invite"
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
@@ -350,6 +369,18 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
               <option value="editor">Editor</option>
               <option value="viewer">Viewer</option>
             </select>
+            {role === 'editor' && (
+              <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={isVoting}
+                  onChange={(e) => setIsVoting(e.target.checked)}
+                  disabled={busy}
+                  aria-label="Grant voting rights to invitees"
+                />
+                Can vote
+              </label>
+            )}
             <button
               onClick={handleAddInvitations}
               disabled={busy || !bulkEmails.trim()}
@@ -365,14 +396,14 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Add collaborators by email. They must sign in to SPERT AHP at least once first.
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap items-center">
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@example.com"
               disabled={busy}
-              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+              className="flex-1 min-w-[12rem] px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
             />
             <select
               value={role}
@@ -383,6 +414,18 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
               <option value="editor">Editor</option>
               <option value="viewer">Viewer</option>
             </select>
+            {role === 'editor' && (
+              <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={isVoting}
+                  onChange={(e) => setIsVoting(e.target.checked)}
+                  disabled={busy}
+                  aria-label="Grant voting rights"
+                />
+                Can vote
+              </label>
+            )}
             <button
               onClick={handleAddLegacy}
               disabled={busy || !email.trim()}
@@ -477,7 +520,6 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
                     </div>
                     <div className="text-[11px] text-gray-500 dark:text-gray-400">
                       {p.role}
-                      {p.isVoting && p.role === 'editor' ? ' · voting' : ''}
                       {p.lastEmailSentAt
                         ? ` · sent ${formatDate(p.lastEmailSentAt)} (${sendCount}/5)`
                         : ` · sent (${sendCount}/5)`}
@@ -485,6 +527,18 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {p.role === 'editor' && (
+                      <label className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                        <input
+                          type="checkbox"
+                          checked={p.isVoting}
+                          onChange={(e) => handleTogglePendingVoting(p.tokenId, e.target.checked)}
+                          disabled={anyBusy}
+                          aria-label={`Toggle voting rights for ${p.inviteeEmail}`}
+                        />
+                        Voting
+                      </label>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleResendInvite(p.tokenId)}

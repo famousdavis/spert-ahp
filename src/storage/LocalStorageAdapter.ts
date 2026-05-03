@@ -370,6 +370,10 @@ export class LocalStorageAdapter implements StorageAdapter {
     // Cloud-only; local mode silently no-ops.
   }
 
+  async updateInvite(_tokenId: string, _isVoting: boolean): Promise<void> {
+    // Cloud-only; local mode silently no-ops.
+  }
+
   // ─── Internal helpers ──────────────────────────────────────────
 
   private _hasAnyResponses(modelId: string): boolean {
