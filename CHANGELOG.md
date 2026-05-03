@@ -1,5 +1,20 @@
 # SPERT® AHP — Changelog
 
+## v0.12.2 (May 2, 2026)
+
+Security audit pass. No exploitable vulnerabilities in the deployed surface; three application-side hardening fixes shipped here. Two lower-severity findings in the landing-page Cloud Functions (invitation-token and modelId logged at info/warn) are tracked separately and will ship in a landing-page release.
+
+### Fixed
+- **Cross-user invitation-roster leak on shared browsers (audit F2, Medium).** `SharingSection.lastResult` (the blue success panel showing every email in `added`/`invited`/`failed`) was held in component-local React state and survived the sign-out → sign-in transition because the component returns null on sign-out without unmounting. The next signer-in who opened a model they own would briefly see the previous user's invitation list. Added a `useEffect` keyed on `user?.uid` that resets `lastResult`, `bulkEmails`, `email`, `error`, and `pendingInvites` whenever the signed-in user changes. Restores the `signOutCleanupRegistry` invariant established in v0.7.2.
+
+### Internal
+- **Replaced `firestore.rules` with a pointer comment, deleted `firestore.rules.merged` (audit F1, defense-in-depth High).** The checked-in rules file held a stale partial copy of the AHP-specific rules and was missing the entire suite-wide invitation infrastructure (`spertsuite_invitations`, `spertsuite_profiles`, `spertsuite_rate_limits`, `spertsuite_notification_throttle`). Anyone treating it as the source of truth and paste-replacing it into the Firebase Console would have silently erased the suite-wide rules. Replaced with a comment-only pointer naming the canonical file (`spert-landing-page/firestore.rules`) and the Firebase Console as the live source of truth.
+- **Documented intentionally-preserved `localStorage` keys in `performSignOutWithCleanup` (audit F5, Low).** `ahp/sessionUserId` and `ahp/workspaceId` are random browser-scoped opaque identifiers used as `_originRef` fingerprints by `migration.ts`; clearing them would break workspace continuity for repeated local→cloud migrations on the same device. Added an inline comment so a future contributor doesn't "fix" them away.
+
+### Out of scope (flagged, not done)
+- Audit findings F3 (invitation `tokenId` logged at info/warn in `claimPendingInvitations`, `resendInvite`, `revokeInvite`, `updateInvite`) and F4 (`modelId` in throttle debug log) live in the `spert-landing-page` repo Cloud Functions and ship via a separate landing-page release. Both are Low — the `tokenId` is not a bearer credential by itself (claim requires `email_verified == inviteeEmail`); the leak is social-graph info disclosure to anyone with Cloud Logs read access.
+- No dependency upgrades.
+
 ## v0.12.1 (May 2, 2026)
 
 ### Fixed
