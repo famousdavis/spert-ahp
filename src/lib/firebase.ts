@@ -128,3 +128,24 @@ export function getResendInvite():
     'resendInvite',
   );
 }
+
+// ─── Update pending invitation (v0.12.0) ────────────────────
+
+export interface UpdateInviteInput {
+  tokenId: string;
+  isVoting: boolean;
+}
+
+export interface UpdateInviteResult {
+  updated: true;
+}
+
+export function getUpdateInvite():
+  | HttpsCallable<UpdateInviteInput, UpdateInviteResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<UpdateInviteInput, UpdateInviteResult>(
+    functionsInstance,
+    'updateInvite',
+  );
+}

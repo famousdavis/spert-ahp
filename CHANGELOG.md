@@ -1,5 +1,19 @@
 # SPERT® AHP — Changelog
 
+## v0.12.0 (May 2, 2026)
+
+### Added
+- **"Can vote" checkbox at invite time.** Owners now decide whether an editor invitee will have voting rights *before* the invitation is sent. The invitee's collaborator record lands with the correct `isVoting` flag from the moment of acceptance, closing the gap where a freshly-accepted editor could submit pairwise comparisons before the owner had a chance to toggle voting off post-acceptance. Defaults to `true` (preserves v0.11.0 behavior); hidden when role is Viewer (viewers never vote).
+- **Voting toggle on pending invitations.** Owners can flip the voting flag on a pending (not yet accepted) editor invite directly from the Sharing section, without revoking and re-inviting. Routes through the new `updateInvite` Cloud Function with inviter-only authorization and `status=pending` precondition.
+
+### Changed
+- The pending-invite list shows an interactive **Voting** checkbox in place of the static "voting" badge for editor invites.
+- Bulk and legacy invite forms now pass the chosen `isVoting` value through to the `sendInvitationEmail` callable instead of hardcoding it to `true` for all editors.
+
+### Infra
+- New **`updateInvite`** Cloud Function on `spert-suite` (us-central1, callable v2, `cors: true`, allUsers Cloud Run invoker). Validates `tokenId` + `isVoting` boolean, requires auth, requires `inviterUid === request.auth.uid`, requires `status === 'pending'`. Updates only `isVoting` + `updatedAt = serverTimestamp()`. Lives in the `spert-landing-page` repo alongside `revokeInvite` / `resendInvite`.
+- `StorageAdapter` gained `updateInvite(tokenId, isVoting)`; `FirestoreAdapter` calls the new callable; `LocalStorageAdapter` is a no-op (cloud-only feature, mirrors revoke/resend pattern).
+
 ## v0.11.0 (May 2, 2026)
 
 ### Added

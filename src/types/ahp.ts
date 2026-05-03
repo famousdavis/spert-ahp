@@ -390,6 +390,12 @@ export interface StorageAdapter {
    * no-op.
    */
   resendInvite(tokenId: string): Promise<void>;
+  /**
+   * Update the isVoting flag on a pending invitation. Caller must be
+   * the inviter; only invitations with status='pending' can be updated.
+   * Local-mode is a no-op. (v0.12.0)
+   */
+  updateInvite(tokenId: string, isVoting: boolean): Promise<void>;
 }
 
 // ─── useAHP State ────────────────────────────────────────────
