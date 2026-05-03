@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
+import type { User } from 'firebase/auth';
 import { act, renderHook } from '@testing-library/react';
 import { TestProviders } from '../../__tests__/test-utils';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -197,5 +198,89 @@ describe('useInvitationLanding', () => {
       result.current.dismiss();
     });
     expect(switchMode).toHaveBeenCalledTimes(1);
+  });
+
+  // ─── v0.12.1: pre_auth → idle when user signs in but no claim event arrives ──
+
+  function makeWrapperWithUserToggle(getUser: () => User | null) {
+    return function Wrapper({ children }: { children: ReactNode }) {
+      const adapter = new LocalStorageAdapter();
+      return (
+        <AuthContext.Provider
+          value={{
+            user: getUser(),
+            loading: false,
+            firebaseAvailable: true,
+            signInError: null,
+            clearSignInError: () => {},
+            signInWithGoogle: async () => {},
+            signInWithMicrosoft: async () => {},
+            signOut: async () => {},
+          }}
+        >
+          <StorageContext.Provider
+            value={{
+              adapter,
+              mode: 'local',
+              isCloudAvailable: true,
+              switchMode: () => {},
+            }}
+          >
+            {children}
+          </StorageContext.Provider>
+        </AuthContext.Provider>
+      );
+    };
+  }
+
+  it('clears the pre_auth banner when the user signs in but no claim event arrives', () => {
+    setUrl('/?invite=tok123');
+    let currentUser: User | null = null;
+    const { result, rerender } = renderHook(() => useInvitationLanding(), {
+      wrapper: makeWrapperWithUserToggle(() => currentUser),
+    });
+    expect(result.current.state.kind).toBe('pre_auth');
+
+    // Simulate sign-in completing without a `spert:models-changed` event
+    // (i.e., claimPendingInvitations failed silently inside AuthContext).
+    act(() => {
+      currentUser = { uid: 'user-1' } as User;
+    });
+    rerender();
+
+    expect(result.current.state.kind).toBe('idle');
+  });
+
+  it('keeps a successful claim transition: signed-in then claim event yields claimed, not idle', () => {
+    setUrl('/?invite=tok123');
+    let currentUser: User | null = null;
+    const { result, rerender } = renderHook(() => useInvitationLanding(), {
+      wrapper: makeWrapperWithUserToggle(() => currentUser),
+    });
+    expect(result.current.state.kind).toBe('pre_auth');
+
+    act(() => {
+      currentUser = { uid: 'user-1' } as User;
+    });
+    rerender();
+
+    // The new pre_auth → idle effect runs first; then the claim event
+    // arrives and the listener transitions us to claimed.
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('spert:models-changed', {
+          detail: {
+            claimed: [
+              { appId: 'spertahp', modelId: 'm1', modelName: 'Pricing decision' },
+            ],
+          },
+        }),
+      );
+    });
+
+    expect(result.current.state).toEqual({
+      kind: 'claimed',
+      modelNames: ['Pricing decision'],
+    });
   });
 });

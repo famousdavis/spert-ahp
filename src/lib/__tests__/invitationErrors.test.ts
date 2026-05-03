@@ -1,59 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseBulkEmails, mapInvitationError } from '../SharingSection';
-
-describe('parseBulkEmails', () => {
-  it('returns empty array for empty input', () => {
-    expect(parseBulkEmails('')).toEqual([]);
-    expect(parseBulkEmails('   ')).toEqual([]);
-  });
-
-  it('splits on commas', () => {
-    expect(parseBulkEmails('a@x.com, b@x.com,c@x.com')).toEqual([
-      'a@x.com',
-      'b@x.com',
-      'c@x.com',
-    ]);
-  });
-
-  it('splits on semicolons', () => {
-    expect(parseBulkEmails('a@x.com; b@x.com;c@x.com')).toEqual([
-      'a@x.com',
-      'b@x.com',
-      'c@x.com',
-    ]);
-  });
-
-  it('splits on newlines and whitespace', () => {
-    const input = 'a@x.com\nb@x.com\r\nc@x.com\td@x.com';
-    expect(parseBulkEmails(input)).toEqual([
-      'a@x.com',
-      'b@x.com',
-      'c@x.com',
-      'd@x.com',
-    ]);
-  });
-
-  it('lowercases and trims', () => {
-    expect(parseBulkEmails('  Alice@Example.COM ')).toEqual(['alice@example.com']);
-  });
-
-  it('deduplicates while preserving first occurrence order', () => {
-    expect(parseBulkEmails('b@x.com, a@x.com, B@X.COM, a@x.com')).toEqual([
-      'b@x.com',
-      'a@x.com',
-    ]);
-  });
-
-  it('handles mixed separators in one input', () => {
-    expect(parseBulkEmails('a@x.com,b@x.com;c@x.com d@x.com\ne@x.com')).toEqual([
-      'a@x.com',
-      'b@x.com',
-      'c@x.com',
-      'd@x.com',
-      'e@x.com',
-    ]);
-  });
-});
+import { mapInvitationError } from '../invitationErrors';
 
 describe('mapInvitationError', () => {
   it('maps resource-exhausted to the per-day cap message (default send context)', () => {
@@ -140,5 +86,35 @@ describe('mapInvitationError', () => {
   it('falls back to a context-appropriate generic for unmapped resend/revoke errors', () => {
     expect(mapInvitationError({}, 'resend')).toMatch(/resending/i);
     expect(mapInvitationError({}, 'revoke')).toMatch(/revoking/i);
+  });
+
+  // ─── v0.12.1: context-aware copy for updateVoting ──
+
+  it('maps resource-exhausted to the rate-limit message when context=updateVoting', () => {
+    expect(
+      mapInvitationError({ code: 'functions/resource-exhausted' }, 'updateVoting'),
+    ).toBe('Too many invitation updates — try again in a moment.');
+  });
+
+  it('maps permission-denied to the owner-only update message when context=updateVoting', () => {
+    expect(
+      mapInvitationError({ code: 'functions/permission-denied' }, 'updateVoting'),
+    ).toBe('Only the model owner can update this invitation.');
+  });
+
+  it('maps failed-precondition to the non-modifiable message when context=updateVoting', () => {
+    expect(
+      mapInvitationError({ code: 'functions/failed-precondition' }, 'updateVoting'),
+    ).toBe('This invitation can no longer be modified.');
+  });
+
+  it('maps not-found to a reload hint when context=updateVoting', () => {
+    expect(
+      mapInvitationError({ code: 'functions/not-found' }, 'updateVoting'),
+    ).toMatch(/no longer exists/i);
+  });
+
+  it('falls back to a context-appropriate generic for unmapped updateVoting errors', () => {
+    expect(mapInvitationError({}, 'updateVoting')).toMatch(/updating/i);
   });
 });

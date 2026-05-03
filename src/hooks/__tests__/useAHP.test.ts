@@ -159,6 +159,54 @@ describe('useAHP', () => {
     expect(result['0,1']).toBe(4);
   });
 
+  // Regression: v0.12.1 — loadModel previously had `[storage]` as its
+  // useCallback dep array, omitting `userId`. After a rerender with a new
+  // userId (e.g. sign-out + sign-in within the same React tree), loadModel
+  // closed over the original userId and the self-heal logic operated on
+  // the wrong slot. Fix: include userId in the dep array.
+  it('loadModel uses the current userId after the hook is re-rendered with a new userId', async () => {
+    // Owner creates the model and adds 'user-b' as an editor.
+    const { result: owner } = renderHook(() => useAHP('owner-user'), { wrapper: TestProviders });
+    let modelId: string | undefined;
+    await act(async () => {
+      modelId = await owner.current.createModel('Shared Decision', 'Goal');
+    });
+    await act(async () => {
+      await owner.current.storage.addCollaborator(modelId!, {
+        userId: 'user-b',
+        role: 'editor',
+        isVoting: true,
+      });
+    });
+
+    // Wipe user-b's response slot so loadModel must self-heal it.
+    localStorage.removeItem(`ahp/models/${modelId}/responses/user-b`);
+    const responseListKey = `ahp/models/${modelId}/responseList`;
+    const list: string[] = JSON.parse(localStorage.getItem(responseListKey) ?? '[]');
+    localStorage.setItem(
+      responseListKey,
+      JSON.stringify(list.filter((u) => u !== 'user-b')),
+    );
+
+    // Render useAHP under a non-member user first, then rerender as user-b
+    // (the actual collaborator). Pre-fix, loadModel would close over the
+    // initial 'user-a' (a non-member) and skip self-heal entirely.
+    const { result: hook, rerender } = renderHook(({ uid }: { uid: string }) => useAHP(uid), {
+      wrapper: TestProviders,
+      initialProps: { uid: 'user-a' },
+    });
+    rerender({ uid: 'user-b' });
+
+    await act(async () => {
+      await hook.current.loadModel(modelId!);
+    });
+
+    // Bug-present behavior would leave user-b's slot still missing.
+    const healed = await hook.current.storage.getResponse(modelId!, 'user-b');
+    expect(healed).not.toBeNull();
+    expect(healed!.userId).toBe('user-b');
+  });
+
   it('marks synthesis out_of_date when comparisons change after current', async () => {
     const { result } = renderHook(() => useAHP('test-user'), { wrapper: TestProviders });
 

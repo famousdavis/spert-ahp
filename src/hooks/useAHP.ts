@@ -148,7 +148,7 @@ export function useAHP(userId: string): UseAHPReturn {
         dispatch({ type: 'SET_SYNTHESIS', payload: syn });
       }
     }
-  }, [storage]);
+  }, [userId, storage]);
 
   const updateModel = useCallback(async (partialMeta: Partial<ModelDoc>): Promise<void> => {
     if (!state.modelId) return;

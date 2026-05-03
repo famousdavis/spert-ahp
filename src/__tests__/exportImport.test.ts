@@ -129,7 +129,7 @@ describe('exportImport — Group 2: end-to-end local round-trip', () => {
     // Export
     const envelope = await exportModel(rA.current.storage, modelId!, 'test-workspace-A');
     expect(envelope.spertAhpExportVersion).toBe(1);
-    expect(envelope.appVersion).toBe('0.12.0');
+    expect(envelope.appVersion).toBe('0.12.1');
     expect(envelope.meta.title).toBe('Laptops');
     expect(envelope.collaborators).toHaveLength(1);
     expect(envelope.collaborators[0]!.userId).toBe(USER_A);
