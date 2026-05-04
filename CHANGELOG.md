@@ -1,5 +1,16 @@
 # SPERT® AHP — Changelog
 
+## v0.13.3 (May 3, 2026)
+
+Suppress benign-but-noisy `claimPendingInvitations failed: functions/failed-precondition` console error fired on every page load for accounts whose IdP did not stamp `email_verified=true` on the token (Microsoft personal MSA accounts: `outlook.com` / `hotmail.com` / `live.com`).
+
+### Fixed
+- **`claimPendingInvitationsAndNotify` now gates on `firebaseUser.emailVerified`.** The Cloud Function (`spert-landing-page/functions/src/claimPendingInvitations.ts`) throws `HttpsError("failed-precondition", …)` whenever `request.auth.token.email_verified !== true` — Firebase callable v2 surfaces that as HTTP 400 with `code = "functions/failed-precondition"`, which `AuthContext.tsx` was logging as `console.error` on every auth resolution. The client now early-returns before the call when `emailVerified` is false, skipping the doomed network round-trip and the resulting console noise. All three call sites (consent-write branch, fast path, slow-path validated) updated to pass `firebaseUser` through. Google and Microsoft work/school accounts (the ones that *can* claim invitations) are unaffected — they still fire the call exactly as before.
+
+### Out of scope (flagged, not done)
+- No server-side change. The Cloud Function's `failed-precondition` defense is correct (invitation lookup is by email; an unverified email shouldn't claim) and stays.
+- No dependency upgrades.
+
 ## v0.13.2 (May 3, 2026)
 
 Form-hygiene residual sweep. After v0.13.1 added the two strictly-required `autoComplete` props, this pass closes the rest of the Chrome DevTools Issues panel form-field warnings — every `<input>`, `<textarea>`, and `<select>` in the app now carries an `id` or `name`, every visible `<label>` is associated with its control via `htmlFor`+`useId()` or implicit wrapping, and every form control without a visible label has an `aria-label`.

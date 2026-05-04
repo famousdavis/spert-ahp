@@ -138,9 +138,15 @@ function writeUserProfile(user: User): void {
  * any mounted DashboardPanel re-runs listModels() and the freshly-claimed
  * decision appears immediately. Failures are logged silently — the user
  * can still claim later (or reload).
+ *
+ * Skips the call entirely when the IdP did not stamp `emailVerified=true`
+ * (e.g. Microsoft personal MSA). The Cloud Function would reject with
+ * `failed-precondition` anyway since invitations are looked up by email,
+ * and that rejection produced a noisy console.error on every page load.
  */
-function claimPendingInvitationsAndNotify(): void {
+function claimPendingInvitationsAndNotify(firebaseUser: User): void {
   if (!INVITATIONS_ENABLED) return;
+  if (!firebaseUser.emailVerified) return;
   const callable = getClaimPendingInvitations();
   if (!callable) return;
   void callable({})
@@ -196,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         consumeWritePending();
         writeUserProfile(firebaseUser);
-        claimPendingInvitationsAndNotify();
+        claimPendingInvitationsAndNotify(firebaseUser);
         recordLocalAcceptance();
         setUser(firebaseUser);
         setLoading(false);
@@ -205,7 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (hasAcceptedCurrentTos()) {
           // Fast path: local cache matches current version
           writeUserProfile(firebaseUser);
-          claimPendingInvitationsAndNotify();
+          claimPendingInvitationsAndNotify(firebaseUser);
           setUser(firebaseUser);
           setLoading(false);
         } else {
@@ -213,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const isValid = await checkReturningUserConsent(firebaseUser);
           if (isValid) {
             writeUserProfile(firebaseUser);
-            claimPendingInvitationsAndNotify();
+            claimPendingInvitationsAndNotify(firebaseUser);
             setUser(firebaseUser);
             setLoading(false);
           } else {
