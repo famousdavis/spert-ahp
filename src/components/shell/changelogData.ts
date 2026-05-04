@@ -9,6 +9,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.13.3',
+    date: '2026-05-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Suppressed noisy claimPendingInvitations failed: functions/failed-precondition console error on every page load. AuthContext fired the Cloud Function on every auth resolution; the function rejects with failed-precondition (HTTP 400) whenever the IdP did not stamp email_verified=true on the token (e.g. Microsoft personal MSA accounts: outlook.com / hotmail.com / live.com). claimPendingInvitationsAndNotify now early-returns when firebaseUser.emailVerified is false, skipping the doomed network round-trip and the resulting console.error. Behavior unchanged for Google and Microsoft work/school accounts, which continue to claim pending invitations on sign-in',
+        ],
+      },
+      {
+        title: 'Out of scope (flagged, not done)',
+        items: [
+          'No server-side change. The Cloud Function in spert-landing-page still rejects unverified-email callers with failed-precondition — that defense is correct and stays',
+          'No dependency upgrades',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.13.2',
     date: '2026-05-03',
     sections: [
