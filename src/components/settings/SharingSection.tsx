@@ -214,8 +214,18 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
       }
       // The auto-add path mutates the model document; refresh both
       // collaborators (via loadModel) and the pending-invite list.
-      await ahpState.loadModel(ahpState.modelId!);
-      await refreshPending();
+      // Lesson 64 — Promise.allSettled so a loadModel failure doesn't
+      // skip the pending-invite refresh, and vice versa.
+      const [modelRes, pendingRes] = await Promise.allSettled([
+        ahpState.loadModel(ahpState.modelId!),
+        refreshPending(),
+      ]);
+      if (modelRes.status === 'rejected') {
+        console.warn('[SharingSection] loadModel post-send failed:', modelRes.reason);
+      }
+      if (pendingRes.status === 'rejected') {
+        console.warn('[SharingSection] refreshPending post-send failed:', pendingRes.reason);
+      }
     } catch (e) {
       setError(mapInvitationError(e as FirebaseError));
     } finally {
