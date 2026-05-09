@@ -49,12 +49,13 @@ export function useInvitationLanding(): {
   dismiss: () => void;
 } {
   const { user, firebaseAvailable } = useAuth();
-  const { switchMode, isCloudAvailable } = useStorage();
+  const { adapter, switchMode, isCloudAvailable } = useStorage();
   const [state, setState] = useState<InvitationLandingState>({ kind: 'idle' });
 
   // Effect 1 — capture ?invite= on mount; strip URL; auto-flip storage mode.
-  // deps intentionally [] — mount-only landing capture; switchMode/isCloudAvailable
-  // captured at mount, subsequent changes don't replay the URL handling.
+  // deps intentionally [] — mount-only landing capture; adapter/switchMode/
+  // isCloudAvailable captured at mount, subsequent changes don't replay
+  // the URL handling.
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
     if (typeof window === 'undefined') return;
@@ -72,7 +73,16 @@ export function useInvitationLanding(): {
     // Pre-flip the storage preference so that whatever path the user
     // takes to sign in (banner CTA or header AuthChip), they end up in
     // cloud mode and can see the freshly-claimed shared project.
-    if (isCloudAvailable) switchMode('cloud');
+    //
+    // localProjectCount === 0 gate (Lesson 28): never auto-flip when the
+    // device already has local projects — silently flipping would orphan
+    // the user's local data path. The check is async (adapter capability)
+    // and fire-and-forget so it doesn't block the pre_auth transition.
+    if (isCloudAvailable) {
+      void adapter.hasLocalProjects().then((has) => {
+        if (!has) switchMode('cloud');
+      });
+    }
     setState({ kind: 'pre_auth', tokenId: token });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

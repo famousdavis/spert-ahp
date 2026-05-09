@@ -283,5 +283,16 @@ describe('LocalStorageAdapter', () => {
       // Should not throw even though no collaborators exist.
       await expect(adapter.removeCollaborator('m1', 'ghost')).resolves.toBeUndefined();
     });
+
+    // Lesson 28 — gates the cloud auto-flip on invite-link landing.
+    it('hasLocalProjects returns false when modelIndex is empty', async () => {
+      // Fresh adapter — schemaVersion key is set, but no modelIndex yet.
+      expect(await adapter.hasLocalProjects()).toBe(false);
+    });
+
+    it('hasLocalProjects returns true after a model is created', async () => {
+      await adapter.createModel('m1', createModelDoc('Test', 'Goal', 'owner'), createStructureDoc());
+      expect(await adapter.hasLocalProjects()).toBe(true);
+    });
   });
 });

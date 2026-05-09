@@ -600,6 +600,25 @@ export class FirestoreAdapter implements StorageAdapter {
     if (!callable) throw new Error('Cloud invitations are not configured.');
     await callable({ tokenId, isVoting });
   }
+
+  /**
+   * Reads localStorage's `ahp/modelIndex` directly (the same key that
+   * LocalStorageAdapter writes to). Mode-independent: in cloud mode the
+   * question is still "are there orphan local projects on this device?"
+   * — the data lives in localStorage regardless of which adapter is
+   * active. See StorageAdapter.hasLocalProjects in src/types/ahp.ts.
+   */
+  async hasLocalProjects(): Promise<boolean> {
+    if (typeof localStorage === 'undefined') return false;
+    try {
+      const raw = localStorage.getItem('ahp/modelIndex');
+      if (!raw) return false;
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch {
+      return false;
+    }
+  }
 }
 
 /**

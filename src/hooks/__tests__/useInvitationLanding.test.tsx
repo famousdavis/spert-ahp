@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type { User } from 'firebase/auth';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { TestProviders } from '../../__tests__/test-utils';
 import { AuthContext } from '../../contexts/AuthContext';
 import { StorageContext } from '../../contexts/StorageContext';
@@ -30,6 +30,7 @@ function setUrl(url: string) {
 describe('useInvitationLanding', () => {
   beforeEach(() => {
     sessionStorage.clear();
+    localStorage.clear();
     setUrl('/');
     setFlag(true);
   });
@@ -186,40 +187,66 @@ describe('useInvitationLanding', () => {
     };
   }
 
-  it("calls switchMode('cloud') when ?invite= is detected and cloud is available", () => {
+  it("calls switchMode('cloud') when ?invite= is detected and cloud is available with no local projects", async () => {
     setUrl('/?invite=tok123');
     const switchMode = vi.fn();
     renderHook(() => useInvitationLanding(), {
       wrapper: makeWrapperWithStorage({ isCloudAvailable: true, switchMode }),
     });
-    expect(switchMode).toHaveBeenCalledWith('cloud');
+    // hasLocalProjects() is async; waitFor lets the fire-and-forget
+    // promise resolve before asserting.
+    await waitFor(() => {
+      expect(switchMode).toHaveBeenCalledWith('cloud');
+    });
   });
 
-  it('does not call switchMode when cloud is unavailable (Firebase not configured)', () => {
+  // Lesson 28 gate: never silently flip to cloud when the device has
+  // existing local projects — that would orphan the user's local data.
+  it('does NOT call switchMode when local projects exist (Lesson 28 gate)', async () => {
+    setUrl('/?invite=tok123');
+    // Pre-populate the localStorage modelIndex that hasLocalProjects() reads.
+    localStorage.setItem(
+      'ahp/modelIndex',
+      JSON.stringify([
+        { modelId: 'm1', title: 'Existing local', status: 'draft', createdAt: 1, order: 0 },
+      ]),
+    );
+    const switchMode = vi.fn();
+    renderHook(() => useInvitationLanding(), {
+      wrapper: makeWrapperWithStorage({ isCloudAvailable: true, switchMode }),
+    });
+    // Give the async hasLocalProjects() check a chance to resolve.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(switchMode).not.toHaveBeenCalled();
+  });
+
+  it('does not call switchMode when cloud is unavailable (Firebase not configured)', async () => {
     setUrl('/?invite=tok123');
     const switchMode = vi.fn();
     renderHook(() => useInvitationLanding(), {
       wrapper: makeWrapperWithStorage({ isCloudAvailable: false, switchMode }),
     });
+    await new Promise((r) => setTimeout(r, 10));
     expect(switchMode).not.toHaveBeenCalled();
   });
 
-  it('does not call switchMode when no ?invite= param is present', () => {
+  it('does not call switchMode when no ?invite= param is present', async () => {
     setUrl('/');
     const switchMode = vi.fn();
     renderHook(() => useInvitationLanding(), {
       wrapper: makeWrapperWithStorage({ isCloudAvailable: true, switchMode }),
     });
+    await new Promise((r) => setTimeout(r, 10));
     expect(switchMode).not.toHaveBeenCalled();
   });
 
-  it('does not call switchMode on dismiss', () => {
+  it('does not call switchMode on dismiss', async () => {
     setUrl('/?invite=tok123');
     const switchMode = vi.fn();
     const { result } = renderHook(() => useInvitationLanding(), {
       wrapper: makeWrapperWithStorage({ isCloudAvailable: true, switchMode }),
     });
-    expect(switchMode).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(switchMode).toHaveBeenCalledTimes(1));
     act(() => {
       result.current.dismiss();
     });
