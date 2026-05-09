@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FirebaseError } from 'firebase/app';
 import { collection, query, where, limit, getDocs } from 'firebase/firestore';
-import { db, getSendInvitationEmail, type SendInvitationEmailResult } from '../../lib/firebase';
+import { db, type SendInvitationEmailResult } from '../../lib/firebase';
+import { callSendInvitationEmail } from '../../lib/callables';
 import { INVITATIONS_ENABLED } from '../../lib/featureFlags';
 import { mapInvitationError } from '../../lib/invitationErrors';
 import { parseBulkEmails } from '../../lib/parseBulkEmails';
@@ -189,27 +190,22 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
       setError('You can invite at most 25 people per submission.');
       return;
     }
-    const callable = getSendInvitationEmail();
-    if (!callable) {
-      setError('Cloud sharing is unavailable in this build.');
-      return;
-    }
     setBusy(true);
     try {
-      const res = await callable({
+      const res = await callSendInvitationEmail({
         appId: 'spertahp',
         modelId: ahpState.modelId!,
         emails: valid,
         role,
         isVoting: role === 'editor' ? isVoting : false,
       });
-      setLastResult(res.data);
+      setLastResult(res);
       setInvalidEmails(invalid);
       // Lesson 43: clear textarea only when at least one address went
       // through the CF (added or invited). If everything failed
       // server-side, keep the input so the user can fix and retry
       // without re-typing.
-      if (res.data.added.length + res.data.invited.length > 0) {
+      if (res.added.length + res.invited.length > 0) {
         setBulkEmails('');
       }
       // The auto-add path mutates the model document; refresh both

@@ -14,7 +14,8 @@ import {
   type User,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, isFirebaseAvailable, getClaimPendingInvitations } from '../lib/firebase';
+import { auth, db, isFirebaseAvailable } from '../lib/firebase';
+import { callClaimPendingInvitations } from '../lib/callables';
 import { INVITATIONS_ENABLED } from '../lib/featureFlags';
 import {
   TOS_VERSION,
@@ -147,11 +148,10 @@ function writeUserProfile(user: User): void {
 function claimPendingInvitationsAndNotify(firebaseUser: User): void {
   if (!INVITATIONS_ENABLED) return;
   if (!firebaseUser.emailVerified) return;
-  const callable = getClaimPendingInvitations();
-  if (!callable) return;
-  void callable({})
+  if (!isFirebaseAvailable) return;
+  void callClaimPendingInvitations()
     .then((res) => {
-      const claimed = res.data?.claimed ?? [];
+      const claimed = res.claimed ?? [];
       if (claimed.length > 0 && typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('spert:models-changed', { detail: { claimed } }),
