@@ -5,6 +5,7 @@ import { INVITATIONS_ENABLED } from '../lib/featureFlags';
 
 const SESSION_KEY = 'spert:pendingInviteToken';
 const QUERY_PARAM = 'invite';
+const GRACE_TIMEOUT_MS = 30_000;
 
 export type InvitationLandingState =
   | { kind: 'idle' }
@@ -18,75 +19,105 @@ interface ClaimedDetail {
 }
 
 /**
- * Manages the ?invite=tokenId landing flow.
+ * Manages the ?invite=tokenId landing flow. Three-state machine matching
+ * the Story Map canonical implementation (Lessons 7, 27, 59):
  *
- *  1. On mount, if the URL carries ?invite=, persist the token to
- *     sessionStorage (so it survives the OAuth popup round-trip), force
- *     the storage mode preference to 'cloud' (the invitee can't see the
- *     shared model in local mode), and surface a 'pre_auth' state so the
- *     shell can render a banner with sign-in CTAs.
- *  2. Once the user signs in, AuthContext fires `spert:models-changed`
- *     (which we listen for here too). We transition to 'claimed' with
- *     the names of any newly-claimed projects, then clear sessionStorage.
- *  3. If the user dismisses the banner, the hook returns 'idle' until
- *     the next claim event.
+ *   idle → pre_auth → claimed       (happy path)
+ *           pre_auth → idle         (30s grace timer expires; user never
+ *                                    arrived, or signed in with the wrong
+ *                                    account, or claim failed silently)
  *
- * Behind INVITATIONS_ENABLED — the hook short-circuits to 'idle' when
- * the flag is off, so production is unchanged.
+ *   - Effect 1: capture ?invite= on mount, persist to sessionStorage,
+ *     strip URL, and pre-flip storage mode to 'cloud' so the freshly-
+ *     claimed model is visible after sign-in.
+ *   - Effect 2: rehydrate pre_auth from sessionStorage on remount when
+ *     state is idle (handles route changes and React re-mounts).
+ *   - Effect 3: spert:models-changed listener with SESSION_KEY gate
+ *     (Lesson 27) — without the gate, a normal sign-in by a user with
+ *     pending invitations would show a spurious 'claimed' banner.
+ *     SESSION_KEY is consumed BEFORE setState (Lesson 59) so a second
+ *     event can't re-trigger the banner after dismissal.
+ *   - Effect 4: 30s grace timer when pre_auth + user signed in. Catches
+ *     "signed in with wrong account" and "claim failed silently"; both
+ *     auto-dismiss after 30s rather than stranding the banner.
+ *   - dismiss() consumes SESSION_KEY before setState (Lesson 59).
  *
- * The auto-cloud-mode switch is intentional: an invitee landing from
- * email has unambiguously opted into the shared-cloud workflow. Without
- * the switch, signing in would leave them in local mode and the
- * freshly-claimed model would be invisible — see useInvitationLanding
- * docs for the full sequence.
+ * Behind INVITATIONS_ENABLED — short-circuits to 'idle' when off.
  */
 export function useInvitationLanding(): {
   state: InvitationLandingState;
   dismiss: () => void;
 } {
-  const { user } = useAuth();
+  const { user, firebaseAvailable } = useAuth();
   const { switchMode, isCloudAvailable } = useStorage();
   const [state, setState] = useState<InvitationLandingState>({ kind: 'idle' });
 
-  // 1) Detect ?invite= on first mount, regardless of auth state.
+  // Effect 1 — capture ?invite= on mount; strip URL; auto-flip storage mode.
+  // deps intentionally [] — mount-only landing capture; switchMode/isCloudAvailable
+  // captured at mount, subsequent changes don't replay the URL handling.
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     const token = url.searchParams.get(QUERY_PARAM);
-    if (token) {
-      try {
-        sessionStorage.setItem(SESSION_KEY, token);
-      } catch {
-        // sessionStorage may be unavailable in private mode — non-fatal.
-      }
-      // Strip the query param so reloads don't replay the banner.
-      url.searchParams.delete(QUERY_PARAM);
-      window.history.replaceState({}, '', url.toString());
-      // Pre-flip the storage preference so that whatever path the user
-      // takes to sign in (banner CTA or header AuthChip), they end up in
-      // cloud mode and can see the freshly-claimed shared project.
-      // No observable effect until they sign in (effectiveMode falls
-      // back to 'local' while user is null).
-      if (isCloudAvailable) switchMode('cloud');
+    if (!token) return;
+    try {
+      sessionStorage.setItem(SESSION_KEY, token);
+    } catch {
+      // sessionStorage may be unavailable in private mode — non-fatal.
     }
-    const stored = (() => {
-      try {
-        return sessionStorage.getItem(SESSION_KEY);
-      } catch {
-        return null;
-      }
-    })();
-    if (stored && !user) {
+    // Strip the query param so reloads don't replay the banner.
+    url.searchParams.delete(QUERY_PARAM);
+    window.history.replaceState({}, '', url.toString());
+    // Pre-flip the storage preference so that whatever path the user
+    // takes to sign in (banner CTA or header AuthChip), they end up in
+    // cloud mode and can see the freshly-claimed shared project.
+    if (isCloudAvailable) switchMode('cloud');
+    setState({ kind: 'pre_auth', tokenId: token });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Effect 2 — rehydrate pre_auth from sessionStorage on remount when idle.
+  // Handles route changes / React re-mounts where Effect 1's mount-only logic
+  // doesn't replay. Only fires when state is idle and user not yet signed in.
+  useEffect(() => {
+    if (!INVITATIONS_ENABLED) return;
+    if (typeof window === 'undefined') return;
+    if (state.kind !== 'idle') return;
+    if (user) return;
+    let stored: string | null = null;
+    try {
+      stored = sessionStorage.getItem(SESSION_KEY);
+    } catch {
+      // sessionStorage unavailable — non-fatal.
+    }
+    if (stored) {
       setState({ kind: 'pre_auth', tokenId: stored });
     }
-  }, [user, switchMode, isCloudAvailable]);
+  }, [state.kind, user]);
 
-  // 2) Listen for claim events dispatched by AuthContext.
+  // Effect 3 — listen for claim confirmation from AuthContext.
+  //
+  // SESSION_KEY gate (Lesson 27): only transition to 'claimed' if the user
+  // arrived via an invite link this session. Without this gate, any user
+  // with a non-empty pending-invitation claim payload (e.g. a returning
+  // user whose claim CF resolved cached invitations) would see a spurious
+  // banner — projects should appear silently in that case.
+  //
+  // Consume-before-transition (Lesson 59): removeItem before setState so
+  // a second event firing in the same tick can't re-trigger the banner
+  // after dismissal.
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
     if (typeof window === 'undefined') return;
     const onChanged = (evt: Event) => {
+      let stored: string | null = null;
+      try {
+        stored = sessionStorage.getItem(SESSION_KEY);
+      } catch {
+        // sessionStorage unavailable — non-fatal.
+      }
+      if (!stored) return;
       const detail = (evt as CustomEvent<{ claimed?: ClaimedDetail[] }>).detail;
       const claimed = detail?.claimed ?? [];
       if (claimed.length === 0) return;
@@ -102,18 +133,28 @@ export function useInvitationLanding(): {
     return () => window.removeEventListener('spert:models-changed', onChanged);
   }, []);
 
-  // 3) Once the user signs in, clear a lingering 'pre_auth' state. The
-  // claim either succeeded (the listener above will move us to 'claimed')
-  // or it failed silently inside AuthContext — in which case the banner
-  // would otherwise strand a signed-in user on a "you've been invited"
-  // banner with non-functional sign-in CTAs. Functional setState avoids
-  // stomping on a 'claimed' state that may have arrived first under any
-  // race ordering.
+  // Effect 4 — 30s grace timer. Fires when pre_auth + user is signed in.
+  // Two cases (Lesson 7):
+  //   (a) right account, slow CF cold start: claim resolves in 5–15s;
+  //       Effect 3 fires first; this timer's cleanup clears the timeout.
+  //   (b) wrong account / expired invite / silent failure: claim returns
+  //       empty or never fires; timer auto-dismisses to idle after 30s.
+  // Both consume SESSION_KEY before setState (Lesson 59).
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
+    if (state.kind !== 'pre_auth') return;
     if (!user) return;
-    setState((prev) => (prev.kind === 'pre_auth' ? { kind: 'idle' } : prev));
-  }, [user]);
+    if (!firebaseAvailable) return;
+    const timeout = setTimeout(() => {
+      try {
+        sessionStorage.removeItem(SESSION_KEY);
+      } catch {
+        // sessionStorage unavailable — non-fatal.
+      }
+      setState({ kind: 'idle' });
+    }, GRACE_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [state.kind, user, firebaseAvailable]);
 
   return {
     state,
