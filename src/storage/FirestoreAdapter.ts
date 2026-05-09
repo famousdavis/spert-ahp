@@ -10,6 +10,7 @@ import {
   where,
   getDocs,
   onSnapshot,
+  runTransaction,
   writeBatch,
 } from 'firebase/firestore';
 import { db, getRevokeInvite, getResendInvite, getUpdateInvite } from '../lib/firebase';
@@ -368,18 +369,35 @@ export class FirestoreAdapter implements StorageAdapter {
   }
 
   async removeCollaborator(modelId: string, userId: string): Promise<void> {
-    // Replaces the direct updateDoc bypass that previously lived in
-    // SharingSection.handleRemove. Updates both the embedded collaborators
-    // array and the members map; leaves the response slot intact so a
-    // re-added collaborator's prior judgments are preserved.
-    const snap = await getDoc(docRef(modelId));
-    if (!snap.exists()) throw new Error(`Model ${modelId} not found`);
-    const d = snap.data() as FirestoreModelDoc;
-    const remaining = (d.collaborators ?? []).filter((c) => c.userId !== userId);
-    await updateDoc(docRef(modelId), {
-      collaborators: remaining,
-      [`members.${userId}`]: deleteField(),
-      updatedAt: Date.now(),
+    // Three-guard runTransaction (Lesson 50). Guards throw plain Error;
+    // SharingSection.handleRemove surfaces err.message directly. Updates
+    // both the embedded collaborators array and the members map atomically;
+    // leaves the response slot intact so a re-added collaborator's prior
+    // judgments are preserved.
+    //
+    //   Guard 1: self-removal — pre-transaction fast fail.
+    //   Guard 2: caller-must-be-owner — defense-in-depth inside the tx
+    //            (UI is owner-gated; this catches a gating bypass).
+    //   Guard 3: target-must-not-be-owner — Shape A check against `owner`.
+    if (userId === this.uid) {
+      throw new Error('Cannot remove yourself from a project.');
+    }
+    await runTransaction(requireDb(), async (tx) => {
+      const ref = docRef(modelId);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new Error('Project not found.');
+      const d = snap.data() as FirestoreModelDoc;
+      if (d.owner !== this.uid) {
+        console.warn('[FirestoreAdapter] non-owner attempted remove — UI gating bypass?');
+        throw new Error('Only the project owner can remove members.');
+      }
+      if (d.owner === userId) throw new Error('Cannot remove the project owner.');
+      const remaining = (d.collaborators ?? []).filter((c) => c.userId !== userId);
+      tx.update(ref, {
+        collaborators: remaining,
+        [`members.${userId}`]: deleteField(),
+        updatedAt: Date.now(),
+      });
     });
   }
 
