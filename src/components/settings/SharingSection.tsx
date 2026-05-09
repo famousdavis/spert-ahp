@@ -55,6 +55,10 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<SendInvitationEmailResult | null>(null);
+  // Lesson 42: invalid-format tokens (rejected client-side by EMAIL_RE,
+  // never sent to the CF) surface as "Invalid" chips alongside the CF
+  // result summary so users see why those addresses didn't go through.
+  const [invalidEmails, setInvalidEmails] = useState<string[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   // tokenId of the pending-invite row whose Resend/Revoke is in flight; null otherwise.
   // Used to disable the row's buttons (and all other rows' buttons) while a request runs.
@@ -90,6 +94,7 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
   // user's invitation roster to the next signer-in.
   useEffect(() => {
     setLastResult(null);
+    setInvalidEmails([]);
     setBulkEmails('');
     setEmail('');
     setError(null);
@@ -135,12 +140,24 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
   const handleAddInvitations = async () => {
     setError(null);
     setLastResult(null);
-    const emails = parseBulkEmails(bulkEmails);
-    if (emails.length === 0) {
-      setError('Enter at least one email address.');
+    setInvalidEmails([]);
+    const { valid, invalid } = parseBulkEmails(bulkEmails);
+    // Lesson 42: nothing valid → no CF call. Surface invalid chips and
+    // retain the textarea content so the user can correct in place.
+    if (valid.length === 0) {
+      if (invalid.length > 0) {
+        setInvalidEmails(invalid);
+        setError(
+          invalid.length === 1
+            ? "That doesn't look like a valid email address."
+            : 'None of those look like valid email addresses.',
+        );
+      } else {
+        setError('Enter at least one email address.');
+      }
       return;
     }
-    if (emails.length > 25) {
+    if (valid.length > 25) {
       setError('You can invite at most 25 people per submission.');
       return;
     }
@@ -154,12 +171,19 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
       const res = await callable({
         appId: 'spertahp',
         modelId: ahpState.modelId!,
-        emails,
+        emails: valid,
         role,
         isVoting: role === 'editor' ? isVoting : false,
       });
       setLastResult(res.data);
-      setBulkEmails('');
+      setInvalidEmails(invalid);
+      // Lesson 43: clear textarea only when at least one address went
+      // through the CF (added or invited). If everything failed
+      // server-side, keep the input so the user can fix and retry
+      // without re-typing.
+      if (res.data.added.length + res.data.invited.length > 0) {
+        setBulkEmails('');
+      }
       // The auto-add path mutates the model document; refresh both
       // collaborators (via loadModel) and the pending-invite list.
       await ahpState.loadModel(ahpState.modelId!);
@@ -255,17 +279,21 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
   };
 
   const renderResultSummary = () => {
-    if (!lastResult) return null;
     const lines: string[] = [];
-    if (lastResult.added.length > 0) {
-      lines.push(`Added ${lastResult.added.length}: ${lastResult.added.join(', ')}`);
+    if (lastResult) {
+      if (lastResult.added.length > 0) {
+        lines.push(`Added ${lastResult.added.length}: ${lastResult.added.join(', ')}`);
+      }
+      if (lastResult.invited.length > 0) {
+        lines.push(`Invited ${lastResult.invited.length}: ${lastResult.invited.join(', ')}`);
+      }
+      if (lastResult.failed.length > 0) {
+        const grouped = lastResult.failed.map((f) => `${f.email} (${f.reason})`).join(', ');
+        lines.push(`Skipped ${lastResult.failed.length}: ${grouped}`);
+      }
     }
-    if (lastResult.invited.length > 0) {
-      lines.push(`Invited ${lastResult.invited.length}: ${lastResult.invited.join(', ')}`);
-    }
-    if (lastResult.failed.length > 0) {
-      const grouped = lastResult.failed.map((f) => `${f.email} (${f.reason})`).join(', ');
-      lines.push(`Skipped ${lastResult.failed.length}: ${grouped}`);
+    if (invalidEmails.length > 0) {
+      lines.push(`Invalid ${invalidEmails.length}: ${invalidEmails.join(', ')}`);
     }
     if (lines.length === 0) return null;
     return (
