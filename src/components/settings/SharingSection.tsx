@@ -102,8 +102,36 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
   }, [user?.uid]);
 
   if (mode !== 'cloud' || !user || !ahpState.modelId) return null;
-  const currentRole = ahpState.collaborators.find((c) => c.userId === user.uid)?.role;
-  if (currentRole !== 'owner') return null;
+
+  // Lesson 60 — four-state OwnerStatus derived from ahpState (the
+  // reducer-side fetch lifecycle). Without the explicit 'error' state,
+  // a failed model fetch leaves currentRole === undefined and the
+  // section renders null silently — the user can't tell whether they
+  // lack permission or whether the load broke.
+  type OwnerStatus = 'loading' | 'owner' | 'not-owner' | 'error';
+  const ownerStatus: OwnerStatus = ahpState.error
+    ? 'error'
+    : ahpState.loading
+      ? 'loading'
+      : ahpState.collaborators.find((c) => c.userId === user.uid)?.role === 'owner'
+        ? 'owner'
+        : 'not-owner';
+
+  if (ownerStatus === 'loading') return null;
+  if (ownerStatus === 'not-owner') return null;
+  if (ownerStatus === 'error') {
+    return (
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Sharing</h3>
+        <div
+          role="alert"
+          className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-900 dark:text-red-200"
+        >
+          Couldn&rsquo;t load sharing details. Refresh the page to try again.
+        </div>
+      </div>
+    );
+  }
 
   // ─── Legacy add path (flag off) ────────────────────────────
   const handleAddLegacy = async () => {
