@@ -1,18 +1,36 @@
+// Same shape used by the sendInvitationEmail CF — kept consistent so
+// a token rejected here is also rejected server-side.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
- * Split a bulk-paste textarea into a normalized list of email addresses.
- * Accepts commas, semicolons, and any whitespace (including newlines) as
- * separators. Lowercases, trims, and de-duplicates while preserving the
- * caller's original ordering.
+ * Splits a bulk-input string on whitespace, commas, and semicolons,
+ * trims each token, and partitions into valid and invalid emails.
+ *
+ * Returns BOTH arrays — never `string[]` alone. Callers need invalid
+ * tokens to render "invalid-format" chips and decide whether to clear
+ * the textarea (Lessons 42, 43).
+ *
+ * Dedup is case-insensitive; the original-case token is preserved in
+ * the output. The CF normalizes to lowercase server-side, so the case
+ * shown to the user matches what they typed.
  */
-export function parseBulkEmails(raw: string): string[] {
-  if (!raw) return [];
+export function parseBulkEmails(raw: string): { valid: string[]; invalid: string[] } {
+  const valid: string[] = [];
+  const invalid: string[] = [];
   const seen = new Set<string>();
-  const out: string[] = [];
-  for (const part of raw.split(/[,;\s]+/)) {
-    const e = part.trim().toLowerCase();
-    if (!e || seen.has(e)) continue;
-    seen.add(e);
-    out.push(e);
+
+  const tokens = raw.split(/[\s,;]+/).map((t) => t.trim()).filter(Boolean);
+
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    if (EMAIL_RE.test(token)) {
+      valid.push(token);
+    } else {
+      invalid.push(token);
+    }
   }
-  return out;
+
+  return { valid, invalid };
 }

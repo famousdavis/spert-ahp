@@ -374,6 +374,11 @@ export class LocalStorageAdapter implements StorageAdapter {
     // Cloud-only; local mode silently no-ops.
   }
 
+  async hasLocalProjects(): Promise<boolean> {
+    const index = getJSON<ModelIndexEntry[]>(key('modelIndex')) ?? [];
+    return index.length > 0;
+  }
+
   // ─── Internal helpers ──────────────────────────────────────────
 
   private _hasAnyResponses(modelId: string): boolean {

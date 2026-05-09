@@ -396,6 +396,17 @@ export interface StorageAdapter {
    * Local-mode is a no-op. (v0.12.0)
    */
   updateInvite(tokenId: string, isVoting: boolean): Promise<void>;
+  /**
+   * Returns true when at least one project exists in the device's local
+   * store (localStorage modelIndex), regardless of which adapter is
+   * currently active. Used by useInvitationLanding to gate the
+   * cloud-mode auto-flip on invite-link landing (Lesson 28): a user
+   * with existing local projects must not be silently flipped to cloud
+   * — that would orphan their local data path. Both adapter
+   * implementations read localStorage, since "local projects" always
+   * lives there.
+   */
+  hasLocalProjects(): Promise<boolean>;
 }
 
 // ─── useAHP State ────────────────────────────────────────────
