@@ -14,7 +14,9 @@ import {
   type User,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, isFirebaseAvailable, getClaimPendingInvitations } from '../lib/firebase';
+import { auth, db, isFirebaseAvailable } from '../lib/firebase';
+import { callClaimPendingInvitations } from '../lib/callables';
+import { writeSpertahpProfile, writeSpertsuiteProfile } from '../lib/profileWrites';
 import { INVITATIONS_ENABLED } from '../lib/featureFlags';
 import {
   TOS_VERSION,
@@ -104,31 +106,14 @@ async function checkReturningUserConsent(user: User): Promise<boolean> {
 }
 
 /**
- * Write or update the per-app profile document used for sharing UI email
- * lookups. Non-blocking — sharing UI is a secondary feature.
- *
- * v0.11.0: also mirrors the same payload into the suite-wide
- * spertsuite_profiles/{uid} collection so cross-app invitations from
- * the other SPERT apps (Gantt, Scheduler, etc.) can resolve email→uid
- * server-side. Both writes use { merge: true } and are fire-and-forget.
+ * Write or update the per-app + suite-wide profile documents used for
+ * sharing UI email lookups and cross-app invitation resolution.
+ * Background-writes — see src/lib/profileWrites.ts. Both writes are
+ * fire-and-forget and use { merge: true }; failures are logged.
  */
 function writeUserProfile(user: User): void {
-  if (!db) return;
-  const payload = {
-    displayName: user.displayName ?? '',
-    email: (user.email ?? '').toLowerCase(),
-    photoURL: user.photoURL ?? null,
-    updatedAt: serverTimestamp(),
-  };
-  void setDoc(doc(db, 'spertahp_profiles', user.uid), payload, { merge: true }).catch((err) => {
-    console.error('Failed to update profile:', (err as { code?: string }).code ?? 'unknown');
-  });
-  void setDoc(doc(db, 'spertsuite_profiles', user.uid), payload, { merge: true }).catch((err) => {
-    console.error(
-      'Failed to update suite profile:',
-      (err as { code?: string }).code ?? 'unknown',
-    );
-  });
+  writeSpertahpProfile(user);
+  writeSpertsuiteProfile(user);
 }
 
 /**
@@ -147,11 +132,10 @@ function writeUserProfile(user: User): void {
 function claimPendingInvitationsAndNotify(firebaseUser: User): void {
   if (!INVITATIONS_ENABLED) return;
   if (!firebaseUser.emailVerified) return;
-  const callable = getClaimPendingInvitations();
-  if (!callable) return;
-  void callable({})
+  if (!isFirebaseAvailable) return;
+  void callClaimPendingInvitations()
     .then((res) => {
-      const claimed = res.data?.claimed ?? [];
+      const claimed = res.claimed ?? [];
       if (claimed.length > 0 && typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('spert:models-changed', { detail: { claimed } }),

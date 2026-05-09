@@ -9,6 +9,47 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.14.0',
+    date: '2026-05-08',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'removeCollaborator now wraps a three-guard runTransaction (Lesson 50). Previously a single getDoc + updateDoc with zero guards. Guard 1: self-removal pre-check fails fast before the transaction. Guard 2: caller-must-be-owner check inside the transaction (defense-in-depth — UI is owner-gated, this catches a gating bypass). Guard 3: target-must-not-be-owner — prevents removing the project owner. Guards throw plain Error and SharingSection.handleRemove surfaces err.message directly. Atomic write preserves prior behavior — prunes embedded collaborators array, drops members[userId], bumps updatedAt; response slot intentionally left intact so a re-added collaborator’s prior judgments are preserved',
+          'useInvitationLanding rewritten to match the canonical Story Map 3-state machine (Lessons 7, 27, 59). The hook now has four explicit effects: URL capture (Effect 1), sessionStorage rehydrate (Effect 2), spert:models-changed listener with SESSION_KEY gate (Effect 3), and 30-second grace timer with consume-before-transition (Effect 4). The prior immediate pre_auth → idle on user sign-in is replaced by the 30s timer, giving the claim CF time to resolve (cold start ≈5–15s) before stranding the banner. SESSION_KEY gate prevents a returning user with cached pending invitations from seeing a spurious "you’ve been added" banner on normal sign-in. AHP’s discriminated-union state shape ({tokenId} on pre_auth, {modelNames} on claimed) preserved so InvitationBanner’s render contract is unchanged',
+          'Cloud auto-flip on invite-link landing now gates on hasLocalProjects() (Lessons 28, 53). Previously, clicking ?invite= unconditionally called switchMode(‘cloud’), silently orphaning any existing local projects on the device. New StorageAdapter.hasLocalProjects(): Promise<boolean> capability — implemented on both adapters, both reading localStorage[‘ahp/modelIndex’] (local-project presence is mode-independent). Hook Effect 1 wraps switchMode in a fire-and-forget hasLocalProjects check; flip is skipped when the device already has any local projects',
+          'parseBulkEmails returns {valid, invalid} with EMAIL_RE validation (Lessons 42, 43). Previously returned string[] with no format validation — invalid-format tokens silently passed through to the CF. The shape change is coupled with SharingSection: nothing valid → no CF call (textarea retained); after the call → textarea clears only when added + invited > 0; invalid-format tokens surface as "Invalid N: …" alongside Added / Invited / Skipped in the existing result summary',
+          'SharingSection now renders an explicit error state when the collaborators fetch fails (Lesson 60). Previously a failed model load left ahpState.collaborators empty and the section disappeared silently — users couldn’t tell whether they lacked permission or whether the load broke. Four-state OwnerStatus (loading / owner / not-owner / error) derived from existing ahpState fields with no reducer changes; the error state renders a visible "Couldn’t load sharing details. Refresh the page to try again." alert',
+          'Post-send refresh in SharingSection now uses Promise.allSettled instead of sequential awaits (Lesson 64). Previously a loadModel rejection skipped the refreshPending call entirely; either list could be stale but never both updated independently. Per-rejection console.warn surfaces the cause without blocking the other refresh',
+          'InvitationBanner restyled to a centered card (Lesson 56). max-w-lg + mx-auto + p-5 + rounded-lg + shadow-sm; dismiss button anchored absolute top-2 right-2 with pr-6 inner content offset so text never runs under it at narrow widths',
+        ],
+      },
+      {
+        title: 'Added',
+        items: [
+          'src/lib/callables.ts — centralized callable wrapper layer with requireFunctions() that throws a meaningful error when Firebase Functions is not configured (Lesson 61). Replaces the five getXxx factory exports + per-site null checks pattern. Each call* wrapper unwraps r.data so callers consume the result directly. Five wrappers: callSendInvitationEmail, callClaimPendingInvitations, callRevokeInvite, callResendInvite, callUpdateInvite',
+          'src/lib/captureInviteTokenFromUrl.ts — extracted from useInvitationLanding’s Effect 1 for testability (Lesson 58). Optional enabled override, preserves URL fragment + non-?invite= query params on strip, idempotent. Six unit tests covering happy path, enabled=false, no-?invite=, idempotency, fragment preservation, and other-query preservation',
+          'src/lib/profileWrites.ts — extracted from AuthContext’s inline closure (Lesson 62). Two named exports: writeSpertahpProfile and writeSpertsuiteProfile, sharing a single buildPayload() helper. updatedAt placed last in the literal so a future spread cannot overwrite serverTimestamp() (Lesson 29). Seven smoke tests covering field shape, lowercased email, null fallbacks, serverTimestamp positioning, fire-and-forget contract, and cross-collection payload symmetry',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '251 passing across 24 test files (was 231 across 22). New: parseBulkEmails partition / all-invalid / malformed cases (3), useInvitationLanding SESSION_KEY gate / 30s grace timer / cleanup-races-claim / hasLocalProjects gate (4), LocalStorageAdapter hasLocalProjects (2), captureInviteTokenFromUrl (6), profileWrites (7). vi.mock(‘../callables’) surface added to performSignOutWithCleanup test as a forward-compat template (Lesson 21)',
+        ],
+      },
+      {
+        title: 'Out of scope (flagged, not done)',
+        items: [
+          'No server-side change. Firestore security rules already block owner self-removal at the database layer; the new app-side guards add UX (clear error messages) and defense-in-depth, not new safety',
+          'AHP’s voting model (isVoting / updateInvite) is orthogonal to all changes in this series — verified untouched',
+          'No React 19 migration. AHP stays on React 18.3.1; lazy useState initializer (Lesson 66) does not apply',
+          'No dependency upgrades',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.13.3',
     date: '2026-05-03',
     sections: [

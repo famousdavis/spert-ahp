@@ -13,7 +13,8 @@ import {
   runTransaction,
   writeBatch,
 } from 'firebase/firestore';
-import { db, getRevokeInvite, getResendInvite, getUpdateInvite } from '../lib/firebase';
+import { db } from '../lib/firebase';
+import { callRevokeInvite, callResendInvite, callUpdateInvite } from '../lib/callables';
 import {
   serializeSynthesisForFirestore,
   deserializeSynthesisFromFirestore,
@@ -569,12 +570,11 @@ export class FirestoreAdapter implements StorageAdapter {
    * Soft-revoke a pending invitation via the revokeInvite Cloud Function.
    * Server flips status='revoked' (no delete). Errors propagate as
    * Firebase HttpsError; SharingSection's mapInvitationError translates
-   * them to user-facing copy.
+   * them to user-facing copy. requireFunctions() throws if Firebase
+   * Functions is not configured (Lesson 61).
    */
   async revokeInvite(tokenId: string): Promise<void> {
-    const callable = getRevokeInvite();
-    if (!callable) throw new Error('Cloud invitations are not configured.');
-    await callable({ tokenId });
+    await callRevokeInvite(tokenId);
   }
 
   /**
@@ -583,9 +583,7 @@ export class FirestoreAdapter implements StorageAdapter {
    * is mapped to cap copy by SharingSection.mapInvitationError.
    */
   async resendInvite(tokenId: string): Promise<void> {
-    const callable = getResendInvite();
-    if (!callable) throw new Error('Cloud invitations are not configured.');
-    await callable({ tokenId });
+    await callResendInvite(tokenId);
   }
 
   /**
@@ -596,9 +594,7 @@ export class FirestoreAdapter implements StorageAdapter {
    * resulting CollaboratorDoc has the right isVoting from the start.
    */
   async updateInvite(tokenId: string, isVoting: boolean): Promise<void> {
-    const callable = getUpdateInvite();
-    if (!callable) throw new Error('Cloud invitations are not configured.');
-    await callable({ tokenId, isVoting });
+    await callUpdateInvite(tokenId, isVoting);
   }
 
   /**

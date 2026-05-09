@@ -1,7 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFunctions, httpsCallable, type Functions, type HttpsCallable } from 'firebase/functions';
+import { getFunctions, type Functions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
@@ -66,30 +66,6 @@ export interface ClaimPendingInvitationsResult {
   claimed: ClaimedInvitation[];
 }
 
-/**
- * Lazily resolve a callable. Returns null when Firebase is not configured
- * (local-mode dev / tests) so callers can guard cleanly without crashing.
- */
-export function getSendInvitationEmail():
-  | HttpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>
-  | null {
-  if (!functionsInstance) return null;
-  return httpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>(
-    functionsInstance,
-    'sendInvitationEmail',
-  );
-}
-
-export function getClaimPendingInvitations():
-  | HttpsCallable<Record<string, never>, ClaimPendingInvitationsResult>
-  | null {
-  if (!functionsInstance) return null;
-  return httpsCallable<Record<string, never>, ClaimPendingInvitationsResult>(
-    functionsInstance,
-    'claimPendingInvitations',
-  );
-}
-
 // ─── Revoke / Resend (Phase 3.5) ────────────────────────────
 
 export interface RevokeInviteInput {
@@ -109,26 +85,6 @@ export interface ResendInviteResult {
   emailSendCount: number;
 }
 
-export function getRevokeInvite():
-  | HttpsCallable<RevokeInviteInput, RevokeInviteResult>
-  | null {
-  if (!functionsInstance) return null;
-  return httpsCallable<RevokeInviteInput, RevokeInviteResult>(
-    functionsInstance,
-    'revokeInvite',
-  );
-}
-
-export function getResendInvite():
-  | HttpsCallable<ResendInviteInput, ResendInviteResult>
-  | null {
-  if (!functionsInstance) return null;
-  return httpsCallable<ResendInviteInput, ResendInviteResult>(
-    functionsInstance,
-    'resendInvite',
-  );
-}
-
 // ─── Update pending invitation (v0.12.0) ────────────────────
 
 export interface UpdateInviteInput {
@@ -140,12 +96,6 @@ export interface UpdateInviteResult {
   updated: true;
 }
 
-export function getUpdateInvite():
-  | HttpsCallable<UpdateInviteInput, UpdateInviteResult>
-  | null {
-  if (!functionsInstance) return null;
-  return httpsCallable<UpdateInviteInput, UpdateInviteResult>(
-    functionsInstance,
-    'updateInvite',
-  );
-}
+// Callable wrappers live in src/lib/callables.ts (Lesson 61). Import
+// callSendInvitationEmail / callClaimPendingInvitations / callRevokeInvite /
+// callResendInvite / callUpdateInvite from there, not from this module.

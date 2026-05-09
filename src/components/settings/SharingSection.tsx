@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FirebaseError } from 'firebase/app';
 import { collection, query, where, limit, getDocs } from 'firebase/firestore';
-import { db, getSendInvitationEmail, type SendInvitationEmailResult } from '../../lib/firebase';
+import { db, type SendInvitationEmailResult } from '../../lib/firebase';
+import { callSendInvitationEmail } from '../../lib/callables';
 import { INVITATIONS_ENABLED } from '../../lib/featureFlags';
 import { mapInvitationError } from '../../lib/invitationErrors';
 import { parseBulkEmails } from '../../lib/parseBulkEmails';
@@ -102,8 +103,36 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
   }, [user?.uid]);
 
   if (mode !== 'cloud' || !user || !ahpState.modelId) return null;
-  const currentRole = ahpState.collaborators.find((c) => c.userId === user.uid)?.role;
-  if (currentRole !== 'owner') return null;
+
+  // Lesson 60 — four-state OwnerStatus derived from ahpState (the
+  // reducer-side fetch lifecycle). Without the explicit 'error' state,
+  // a failed model fetch leaves currentRole === undefined and the
+  // section renders null silently — the user can't tell whether they
+  // lack permission or whether the load broke.
+  type OwnerStatus = 'loading' | 'owner' | 'not-owner' | 'error';
+  const ownerStatus: OwnerStatus = ahpState.error
+    ? 'error'
+    : ahpState.loading
+      ? 'loading'
+      : ahpState.collaborators.find((c) => c.userId === user.uid)?.role === 'owner'
+        ? 'owner'
+        : 'not-owner';
+
+  if (ownerStatus === 'loading') return null;
+  if (ownerStatus === 'not-owner') return null;
+  if (ownerStatus === 'error') {
+    return (
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Sharing</h3>
+        <div
+          role="alert"
+          className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-900 dark:text-red-200"
+        >
+          Couldn&rsquo;t load sharing details. Refresh the page to try again.
+        </div>
+      </div>
+    );
+  }
 
   // ─── Legacy add path (flag off) ────────────────────────────
   const handleAddLegacy = async () => {
@@ -161,33 +190,38 @@ export default function SharingSection({ ahpState }: SharingSectionProps) {
       setError('You can invite at most 25 people per submission.');
       return;
     }
-    const callable = getSendInvitationEmail();
-    if (!callable) {
-      setError('Cloud sharing is unavailable in this build.');
-      return;
-    }
     setBusy(true);
     try {
-      const res = await callable({
+      const res = await callSendInvitationEmail({
         appId: 'spertahp',
         modelId: ahpState.modelId!,
         emails: valid,
         role,
         isVoting: role === 'editor' ? isVoting : false,
       });
-      setLastResult(res.data);
+      setLastResult(res);
       setInvalidEmails(invalid);
       // Lesson 43: clear textarea only when at least one address went
       // through the CF (added or invited). If everything failed
       // server-side, keep the input so the user can fix and retry
       // without re-typing.
-      if (res.data.added.length + res.data.invited.length > 0) {
+      if (res.added.length + res.invited.length > 0) {
         setBulkEmails('');
       }
       // The auto-add path mutates the model document; refresh both
       // collaborators (via loadModel) and the pending-invite list.
-      await ahpState.loadModel(ahpState.modelId!);
-      await refreshPending();
+      // Lesson 64 — Promise.allSettled so a loadModel failure doesn't
+      // skip the pending-invite refresh, and vice versa.
+      const [modelRes, pendingRes] = await Promise.allSettled([
+        ahpState.loadModel(ahpState.modelId!),
+        refreshPending(),
+      ]);
+      if (modelRes.status === 'rejected') {
+        console.warn('[SharingSection] loadModel post-send failed:', modelRes.reason);
+      }
+      if (pendingRes.status === 'rejected') {
+        console.warn('[SharingSection] refreshPending post-send failed:', pendingRes.reason);
+      }
     } catch (e) {
       setError(mapInvitationError(e as FirebaseError));
     } finally {

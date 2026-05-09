@@ -13,7 +13,36 @@ vi.mock('firebase/auth', () => ({
 vi.mock('../firebase', () => ({
   auth: { __mock: true },
   db: null,
+  functions: null,
   isFirebaseAvailable: false,
+}));
+
+// Lesson 21 — completeness mock for the callable wrapper layer. The
+// performSignOutWithCleanup module under test does not import these,
+// but the vi.mock pattern is intended to cover the entire surface that
+// transitively-imported invitation code might reach. Without this
+// mock, a future test added under the same firebase mock that
+// happened to touch invitation flow would fail with
+// "Firebase Functions is not initialized" out of requireFunctions().
+vi.mock('../callables', () => ({
+  requireFunctions: vi.fn(() => {
+    throw new Error('Firebase Functions is not initialized — VITE_FIREBASE_* env vars are missing.');
+  }),
+  callSendInvitationEmail: vi.fn(() =>
+    Promise.reject(new Error('Firebase Functions is not initialized')),
+  ),
+  callClaimPendingInvitations: vi.fn(() =>
+    Promise.reject(new Error('Firebase Functions is not initialized')),
+  ),
+  callRevokeInvite: vi.fn(() =>
+    Promise.reject(new Error('Firebase Functions is not initialized')),
+  ),
+  callResendInvite: vi.fn(() =>
+    Promise.reject(new Error('Firebase Functions is not initialized')),
+  ),
+  callUpdateInvite: vi.fn(() =>
+    Promise.reject(new Error('Firebase Functions is not initialized')),
+  ),
 }));
 
 // Import AFTER mocks
