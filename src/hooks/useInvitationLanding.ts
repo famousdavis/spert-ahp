@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStorage } from '../contexts/StorageContext';
 import { INVITATIONS_ENABLED } from '../lib/featureFlags';
+import {
+  captureInviteTokenFromUrl,
+  INVITE_SESSION_KEY as SESSION_KEY,
+} from '../lib/captureInviteTokenFromUrl';
 
-const SESSION_KEY = 'spert:pendingInviteToken';
-const QUERY_PARAM = 'invite';
 const GRACE_TIMEOUT_MS = 30_000;
 
 export type InvitationLandingState =
@@ -52,24 +54,15 @@ export function useInvitationLanding(): {
   const { adapter, switchMode, isCloudAvailable } = useStorage();
   const [state, setState] = useState<InvitationLandingState>({ kind: 'idle' });
 
-  // Effect 1 — capture ?invite= on mount; strip URL; auto-flip storage mode.
+  // Effect 1 — capture ?invite= on mount; auto-flip storage mode.
   // deps intentionally [] — mount-only landing capture; adapter/switchMode/
   // isCloudAvailable captured at mount, subsequent changes don't replay
-  // the URL handling.
+  // the URL handling. URL capture extracted to captureInviteTokenFromUrl
+  // for testability (Lesson 58).
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    const token = url.searchParams.get(QUERY_PARAM);
+    const token = captureInviteTokenFromUrl();
     if (!token) return;
-    try {
-      sessionStorage.setItem(SESSION_KEY, token);
-    } catch {
-      // sessionStorage may be unavailable in private mode — non-fatal.
-    }
-    // Strip the query param so reloads don't replay the banner.
-    url.searchParams.delete(QUERY_PARAM);
-    window.history.replaceState({}, '', url.toString());
     // Pre-flip the storage preference so that whatever path the user
     // takes to sign in (banner CTA or header AuthChip), they end up in
     // cloud mode and can see the freshly-claimed shared project.
