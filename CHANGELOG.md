@@ -1,5 +1,33 @@
 # SPERT® AHP — Changelog
 
+## v0.15.0 (May 9, 2026)
+
+Independent v0.14.0 security and code-quality audit produced 7 actionable findings; v0.15.0 ships 6 targeted fixes plus a comment-only doc update for the deferred trade-off. No new dependencies, no structural changes to auth, storage, or the invitation state machine.
+
+### Fixed
+- **Cross-user migration disclosure copy.** The migration-confirmation panel previously read "You have N local decisions. Upload to cloud?" — ambiguous on a shared browser, where local decisions persist across sign-out and could have been created by a previous user. New copy explicitly discloses that local decisions are device-scoped, not identity-scoped: "This device has N local decisions stored in your browser. Local decisions are not linked to any account — they may have been created by you or by a previous user of this browser. Upload them to your cloud account?" UI-only; no logic change.
+- **`addCollaborator` and `updateCollaborator` now wrap caller-is-owner `runTransaction`s.** Mirrors the v0.14.0 three-guard pattern from `removeCollaborator`. `addCollaborator` adds Guard 1: caller-must-be-owner. `updateCollaborator` adds Guard 1: caller-must-be-owner; Guard 2: target-must-not-be-owner (the owner role is a fixed point). Both guards throw plain `Error` so `SharingSection` surfaces `err.message` directly. The transactional wrapper also eliminates the previous read-modify-write race where two concurrent owner-side adds could each clobber the other's `collaborators[]` write.
+- **`reorderModels` now filters caller-supplied `orderedIds` against actual membership.** Previously a malformed or maliciously-constructed list would hit the `writeBatch` and fail partway as Firestore rules rejected foreign writes. The client-side filter (using the same `where('members.{uid}', 'in', […])` query as `listModels`) reduces this to a clean no-op for unauthorized ids.
+- **`performSignOutWithCleanup` now clears the sessionStorage invite token.** Previously `spert:pendingInviteToken` survived sign-out, so the next user on the same tab could see a spurious "you've been added" banner driven by the previous user's invite-link landing. Imports `INVITE_SESSION_KEY` from `captureInviteTokenFromUrl.ts` and `removeItem`s inside a try/catch (sessionStorage may be unavailable in private/embedded contexts).
+- **`registerSignOutCleanup` now returns a deregister handle.** The module-level callbacks array previously grew on every remount (StrictMode double-invoke, route reset, error-boundary recovery) and accumulated closures over stale React state. Both production registrations (`App.tsx` for `closeModel`, `StorageContext.tsx` for storage-mode reset) now return the deregister from their `useEffect` cleanup.
+- **`'ahp/hasUploadedToCloud'` consolidated behind `migration.ts` exports.** The literal previously appeared as a duplicated `const HAS_UPLOADED_KEY` in both `migration.ts` and `performSignOutWithCleanup.ts`, plus a bare string in `StorageSection.tsx`. `migration.ts` now exports `HAS_UPLOADED_KEY` and a new `setHasUploadedFlag()` helper; the other two sites import from there. Renaming the key now requires editing one source-of-truth instead of three.
+
+### Documented (intentionally not changed)
+- **`useAHP.saveComparisons` non-rollback on storage failure.** The optimistic local dispatch is intentionally not rolled back — the `SET_ERROR` dispatch ("Save failed — you may have been signed out. Reload to continue.") is the user-visible signal, and rolling back would require snapshotting prior response state and reverting on catch. New comment near the optimistic dispatch in `useAHP.ts` documents the trade-off explicitly.
+
+### Tests
+- New `performSignOutWithCleanup` test asserting `INVITE_SESSION_KEY` is cleared on sign-out.
+- New `signOutCleanupRegistry` tests covering the deregister handle: removes only the specified callback, idempotent under double-deregister, does not affect callbacks registered after deregistration.
+- `beforeEach` in `performSignOutWithCleanup.test.ts` now clears `sessionStorage` for hermetic runs.
+
+### Out of scope (flagged, not done)
+- No FirestoreAdapter unit tests added for the new transactional guards. The codebase has no FirestoreAdapter test infrastructure; the `removeCollaborator` precedent (also unguarded by unit tests) is matched. Manual smoke during the verification pass exercises the owner / non-owner / target-is-owner branches.
+- No server-side change. The deployed Firestore rules already enforce owner-only mutations at the database layer; the new app-side guards add UX (clear error messages) and defense-in-depth.
+- `checkReturningUserConsent` fail-open behavior unchanged — already documented in source.
+- `subscribeModel` silent permanent-failure surface unchanged — carry-forward from v0.13.1, blocked on the notification provider gap.
+- `writeUserProfile` per-load writes unchanged — out of scope for this release.
+- No dependency upgrades.
+
 ## v0.14.0 (May 8, 2026)
 
 Bulk-sharing retrograde audit — three-PR series closing 11 confirmed gaps against the canonical Story Map / MyScrumBudget references. Touches `removeCollaborator` data-integrity guards, the entire invitation-landing hook state machine, the `parseBulkEmails` return shape, the callable wrapper layer, and the InvitationBanner visual treatment.

@@ -174,6 +174,10 @@ export function useAHP(userId: string): UseAHPReturn {
     // We don't read-after-write from storage because (a) in cloud mode that's a
     // wasted Firestore read + race condition, (b) we know exactly what we just wrote.
     // onSnapshot will reconcile any concurrent edits by other users in cloud mode.
+    // Intentional non-rollback on storage failure (v0.15.0 audit finding #4):
+    // the SET_ERROR dispatch below is the user-visible signal; rolling back
+    // would require snapshotting prior response state and reverting on
+    // catch, which adds complexity not justified by the failure frequency.
     const currentResponse = state.responses[userId];
     if (currentResponse) {
       const nextResponse: ResponseDoc = {

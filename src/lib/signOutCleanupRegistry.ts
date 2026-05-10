@@ -2,8 +2,17 @@ type CleanupCallback = () => Promise<void> | void;
 
 const callbacks: CleanupCallback[] = [];
 
-export function registerSignOutCleanup(fn: CleanupCallback): void {
+// Returns a deregister handle so callers can remove the callback when their
+// owning component unmounts. Without this, the module-level array grows on
+// every remount (StrictMode double-invoke, route resets, error-boundary
+// recovery) and accumulates closures over stale React state — v0.15.0
+// audit finding #2.
+export function registerSignOutCleanup(fn: CleanupCallback): () => void {
   callbacks.push(fn);
+  return () => {
+    const idx = callbacks.indexOf(fn);
+    if (idx !== -1) callbacks.splice(idx, 1);
+  };
 }
 
 export async function runSignOutCleanup(): Promise<void> {
