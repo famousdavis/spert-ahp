@@ -35,7 +35,8 @@ export default function App() {
     closeModelRef.current = ahpState.closeModel;
   }, [ahpState.closeModel]);
   useEffect(() => {
-    registerSignOutCleanup(() => closeModelRef.current());
+    const deregister = registerSignOutCleanup(() => closeModelRef.current());
+    return deregister;
   }, []);
 
   // C4: on cloud→local mode transition, close any open cloud model so the

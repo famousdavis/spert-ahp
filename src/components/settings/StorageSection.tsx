@@ -4,7 +4,7 @@ import { useStorage } from '../../contexts/StorageContext';
 import { useSession } from '../../hooks/useSession';
 import { LocalStorageAdapter } from '../../storage/LocalStorageAdapter';
 import { FirestoreAdapter } from '../../storage/FirestoreAdapter';
-import { uploadLocalToCloud, hasUploadedToCloud } from '../../storage/migration';
+import { uploadLocalToCloud, hasUploadedToCloud, setHasUploadedFlag } from '../../storage/migration';
 import { performSignOutWithCleanup } from '../../lib/performSignOutWithCleanup';
 import { normalizeDisplayName } from '../../lib/userDisplay';
 import { GoogleLogo, MicrosoftLogo } from '../shell/AuthProviderLogos';
@@ -95,7 +95,7 @@ export default function StorageSection({ onClose }: StorageSectionProps = {}) {
   }, [user, localUserId, switchMode, adapter]);
 
   const handleSkipMigration = useCallback(() => {
-    localStorage.setItem('ahp/hasUploadedToCloud', 'true');
+    setHasUploadedFlag();
     setMigration({ status: 'idle' });
     switchMode('cloud');
   }, [switchMode]);
@@ -237,8 +237,11 @@ export default function StorageSection({ onClose }: StorageSectionProps = {}) {
       {migration.status === 'confirm' && (
         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md space-y-2">
           <p className="text-xs text-blue-900 dark:text-blue-200">
-            You have <strong>{migration.localCount}</strong> local decision
-            {migration.localCount === 1 ? '' : 's'}. Upload to cloud?
+            This device has <strong>{migration.localCount}</strong> local decision
+            {migration.localCount === 1 ? '' : 's'} stored in your browser.
+            Local decisions are not linked to any account — they may have been
+            created by you or by a previous user of this browser. Upload them
+            to your cloud account?
           </p>
           <div className="flex gap-2">
             <button

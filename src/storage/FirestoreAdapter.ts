@@ -285,10 +285,23 @@ export class FirestoreAdapter implements StorageAdapter {
   }
 
   async reorderModels(orderedIds: string[]): Promise<void> {
+    // Defensive: only update documents the caller is actually a member of.
+    // Prevents a caller-supplied list from writing `order` on foreign
+    // projects. The deployed rules would reject those writes anyway, but
+    // the client-side guard surfaces the error as a filtered no-op rather
+    // than a partial-batch failure (v0.15.0 audit finding #6).
+    const q = query(
+      collection(requireDb(), `${NAMESPACE}_projects`),
+      where(`members.${this.uid}`, 'in', ['owner', 'editor', 'viewer']),
+    );
+    const snap = await getDocs(q);
+    const ownedIds = new Set(snap.docs.map((d) => d.id));
     const batch = writeBatch(requireDb());
-    orderedIds.forEach((id, idx) => {
-      batch.update(docRef(id), { order: idx, updatedAt: Date.now() });
-    });
+    orderedIds
+      .filter((id) => ownedIds.has(id))
+      .forEach((id, idx) => {
+        batch.update(docRef(id), { order: idx, updatedAt: Date.now() });
+      });
     await batch.commit();
   }
 
@@ -312,36 +325,47 @@ export class FirestoreAdapter implements StorageAdapter {
   // ─── Collaborators ──────────────────────────────────────────
 
   async addCollaborator(modelId: string, collaboratorDoc: CollaboratorDoc): Promise<void> {
-    // Read, append, write back (arrayUnion would dedupe by deep-equality which
-    // is fragile for our shape).
-    const snap = await getDoc(docRef(modelId));
-    if (!snap.exists()) throw new Error(`Model ${modelId} not found`);
-    const d = snap.data() as FirestoreModelDoc;
-    const existing = d.collaborators ?? [];
-    const filtered = existing.filter((c) => c.userId !== collaboratorDoc.userId);
-    filtered.push(collaboratorDoc);
+    // Caller-is-owner runTransaction (v0.15.0 audit finding #2). Mirrors
+    // the defense-in-depth pattern from removeCollaborator. Atomically
+    // updates the embedded collaborators array, the members map, and (if
+    // missing) the response slot — preventing the read-modify-write race
+    // where two concurrent owner-side adds could each clobber the other's
+    // collaborators[] write.
+    //
+    // Response slot is created without overwriting an existing slot so that
+    // re-adding a previously-removed collaborator preserves their prior
+    // judgments.
+    await runTransaction(requireDb(), async (tx) => {
+      const ref = docRef(modelId);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new Error('Project not found.');
+      const d = snap.data() as FirestoreModelDoc;
+      if (d.owner !== this.uid) {
+        console.warn('[FirestoreAdapter] non-owner attempted addCollaborator — UI gating bypass?');
+        throw new Error('Only the project owner can add members.');
+      }
+      const existing = d.collaborators ?? [];
+      const filtered = existing.filter((c) => c.userId !== collaboratorDoc.userId);
+      filtered.push(collaboratorDoc);
 
-    // Create an empty response slot for the new collaborator. Without this,
-    // saveComparisons throws "Response for {userId} not found" the first time
-    // the collaborator submits a judgment. Preserve any existing slot (e.g.,
-    // re-adding a previously-removed collaborator who already has responses).
-    const update: Record<string, unknown> = {
-      collaborators: filtered,
-      [`members.${collaboratorDoc.userId}`]: collaboratorDoc.role,
-      updatedAt: Date.now(),
-    };
-    if (!d.responses?.[collaboratorDoc.userId]) {
-      update[`responses.${collaboratorDoc.userId}`] = {
-        userId: collaboratorDoc.userId,
-        status: 'in_progress',
-        criteriaMatrix: {},
-        alternativeMatrices: {},
-        cr: {},
-        lastModifiedAt: Date.now(),
-        structureVersionAtSubmission: 0,
+      const update: Record<string, unknown> = {
+        collaborators: filtered,
+        [`members.${collaboratorDoc.userId}`]: collaboratorDoc.role,
+        updatedAt: Date.now(),
       };
-    }
-    await updateDoc(docRef(modelId), update);
+      if (!d.responses?.[collaboratorDoc.userId]) {
+        update[`responses.${collaboratorDoc.userId}`] = {
+          userId: collaboratorDoc.userId,
+          status: 'in_progress',
+          criteriaMatrix: {},
+          alternativeMatrices: {},
+          cr: {},
+          lastModifiedAt: Date.now(),
+          structureVersionAtSubmission: 0,
+        };
+      }
+      tx.update(ref, update);
+    });
   }
 
   async getCollaborators(modelId: string): Promise<CollaboratorDoc[]> {
@@ -352,21 +376,35 @@ export class FirestoreAdapter implements StorageAdapter {
   }
 
   async updateCollaborator(modelId: string, userId: string, partial: Partial<CollaboratorDoc>): Promise<void> {
-    const snap = await getDoc(docRef(modelId));
-    if (!snap.exists()) throw new Error(`Model ${modelId} not found`);
-    const d = snap.data() as FirestoreModelDoc;
-    const collabs = (d.collaborators ?? []).map((c) =>
-      c.userId === userId ? { ...c, ...partial } : c,
-    );
-    const update: Record<string, unknown> = {
-      collaborators: collabs,
-      updatedAt: Date.now(),
-    };
-    // If role changed, mirror it into the members map
-    if (partial.role) {
-      update[`members.${userId}`] = partial.role;
-    }
-    await updateDoc(docRef(modelId), update);
+    // Caller-is-owner runTransaction (v0.15.0 audit finding #2). Mirrors
+    // the defense-in-depth pattern from removeCollaborator.
+    //
+    //   Guard 1: caller-must-be-owner — defense-in-depth inside the tx
+    //            (UI is owner-gated; this catches a gating bypass).
+    //   Guard 2: target-must-not-be-owner — the owner role is a fixed
+    //            point that should not be mutated by this method.
+    await runTransaction(requireDb(), async (tx) => {
+      const ref = docRef(modelId);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new Error('Project not found.');
+      const d = snap.data() as FirestoreModelDoc;
+      if (d.owner !== this.uid) {
+        console.warn('[FirestoreAdapter] non-owner attempted updateCollaborator — UI gating bypass?');
+        throw new Error('Only the project owner can update members.');
+      }
+      if (d.owner === userId) throw new Error('Cannot change the role of the project owner.');
+      const collabs = (d.collaborators ?? []).map((c) =>
+        c.userId === userId ? { ...c, ...partial } : c,
+      );
+      const update: Record<string, unknown> = {
+        collaborators: collabs,
+        updatedAt: Date.now(),
+      };
+      if (partial.role) {
+        update[`members.${userId}`] = partial.role;
+      }
+      tx.update(ref, update);
+    });
   }
 
   async removeCollaborator(modelId: string, userId: string): Promise<void> {

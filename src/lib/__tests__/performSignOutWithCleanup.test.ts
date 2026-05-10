@@ -51,6 +51,7 @@ import { performSignOutWithCleanup } from '../performSignOutWithCleanup';
 describe('performSignOutWithCleanup', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     clearSignOutCleanupRegistry();
     signOutSpy.mockClear();
   });
@@ -77,6 +78,15 @@ describe('performSignOutWithCleanup', () => {
     expect(localStorage.getItem('ahp/tos-write-pending')).toBeNull();
     expect(localStorage.getItem('ahp/exportAttribution')).toBeNull();
     expect(localStorage.getItem('ahp/hasUploadedToCloud')).toBeNull();
+    expect(signOutSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the sessionStorage invite token (v0.15.0 finding #5)', async () => {
+    sessionStorage.setItem('spert:pendingInviteToken', 'test-token-abc');
+
+    await performSignOutWithCleanup();
+
+    expect(sessionStorage.getItem('spert:pendingInviteToken')).toBeNull();
     expect(signOutSpy).toHaveBeenCalledTimes(1);
   });
 

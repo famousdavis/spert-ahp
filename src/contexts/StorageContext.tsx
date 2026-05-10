@@ -52,10 +52,11 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   // updates persistedMode so effectiveMode recomputes to 'local' on the
   // next render following sign-out.
   useEffect(() => {
-    registerSignOutCleanup(() => {
+    const deregister = registerSignOutCleanup(() => {
       localStorage.setItem(MODE_KEY, 'local');
       setPersistedMode('local');
     });
+    return deregister;
   }, []);
 
   useEffect(() => {

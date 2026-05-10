@@ -8,7 +8,7 @@ export interface MigrationResult {
   errors: Array<{ modelId: string; error: string }>;
 }
 
-const HAS_UPLOADED_KEY = 'ahp/hasUploadedToCloud';
+export const HAS_UPLOADED_KEY = 'ahp/hasUploadedToCloud';
 
 /**
  * Upload all local models to Firestore, rewriting the local userId to the
@@ -121,6 +121,10 @@ export async function uploadLocalToCloud(
 
 export function hasUploadedToCloud(): boolean {
   return localStorage.getItem(HAS_UPLOADED_KEY) === 'true';
+}
+
+export function setHasUploadedFlag(): void {
+  localStorage.setItem(HAS_UPLOADED_KEY, 'true');
 }
 
 export function clearHasUploadedFlag(): void {
