@@ -29,7 +29,10 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function generateModelId(): string {
+// TODO (v0.17.0): importModel's internal UID-remap logic (Phase B below)
+// duplicates buildBundleFromEnvelope. Once the existing 10 tests are confirmed
+// stable against buildBundleFromEnvelope, refactor importModel to call it.
+export function generateModelId(): string {
   return `model-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
@@ -281,4 +284,69 @@ export async function importModel(
   const newModelId = generateModelId();
   await storage.createModelFromBundle(newModelId, bundle);
   return newModelId;
+}
+
+/**
+ * Transform an AHPExportEnvelope into a write-ready AHPExportBundle.
+ * Remaps original-owner UID to currentUserId; collapses collaborators to
+ * [currentUserId as owner]; whitelist-picks every field; strips synthesis.
+ *
+ * Does NOT validate the envelope — caller must run validateModelDoc first
+ * (parseAndClassifyImport in src/storage/import-utils.ts does this).
+ * Does NOT write to storage.
+ *
+ * Used by the Level 4 bundle import path (v0.16.0). The single-shot import
+ * via importModel() above duplicates this logic at lines ~222–280; a future
+ * v0.17.0 refactor will consolidate the two paths.
+ */
+export function buildBundleFromEnvelope(
+  envelope: AHPExportEnvelope,
+  currentUserId: string,
+): AHPExportBundle {
+  const metaSource = envelope.meta as unknown as Record<string, unknown>;
+  const originalOwner =
+    envelope.collaborators.find((c) => c && c.role === 'owner')?.userId
+    ?? pickString(metaSource['createdBy']);
+
+  const originalOwnerResponse =
+    (envelope.responses as Record<string, unknown>)[originalOwner];
+
+  const rewrittenChangeLog: ChangeLogEntry[] = pickChangeLog(metaSource['_changeLog']).map(
+    (e) => (e.actor === originalOwner ? { ...e, actor: currentUserId } : e),
+  );
+  rewrittenChangeLog.push({
+    action: 'imported',
+    timestamp: Date.now(),
+    actor: currentUserId,
+  });
+
+  const incomingStatus = pickStatus(metaSource['status']);
+  const resultsVisibility = pickResultsVisibility(metaSource['resultsVisibility']);
+
+  const rewrittenMeta: ModelDoc = {
+    title: pickString(metaSource['title']),
+    goal: pickString(metaSource['goal']),
+    createdBy: currentUserId,
+    createdAt: pickNumber(metaSource['createdAt'], Date.now()),
+    status: incomingStatus === 'synthesized' ? 'open' : incomingStatus,
+    completionTier: pickCompletionTier(metaSource['completionTier']),
+    synthesisStatus: null,
+    disagreementConfig: pickDisagreementConfig(metaSource['disagreementConfig'], currentUserId),
+    publishedSynthesisId: null,
+    _originRef: pickString(metaSource['_originRef'], '') || getOrCreateWorkspaceId(),
+    _changeLog: rewrittenChangeLog,
+    ...(resultsVisibility ? { resultsVisibility } : {}),
+  };
+
+  return {
+    meta: rewrittenMeta,
+    structure: pickStructure(envelope.structure),
+    collaborators: [{ userId: currentUserId, role: 'owner', isVoting: true }],
+    responses: {
+      [currentUserId]: originalOwnerResponse
+        ? pickResponse(originalOwnerResponse, currentUserId)
+        : createResponseDoc(currentUserId),
+    },
+    synthesis: null,
+  };
 }

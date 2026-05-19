@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { importModel } from '../../storage/importModel';
+import { useState, useEffect } from 'react';
 import { exportAllModels } from '../../storage/exportAllModels';
 import { getOrCreateWorkspaceId } from '../../hooks/useSession';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStorage } from '../../contexts/StorageContext';
 import { useDragReorder } from '../../hooks/useDragReorder';
+import { useImportState } from '../../hooks/useImportState';
+import ImportPreviewSection from './ImportPreviewSection';
 import { TrashIcon } from '../icons/TrashIcon';
 import { DragHandleIcon } from '../icons/DragHandleIcon';
 import type { UseAHPReturn, ModelIndexEntry } from '../../types/ahp';
@@ -23,19 +24,24 @@ export default function DashboardPanel({ ahpState, userId, onDecisionOpened }: D
   const { user } = useAuth();
   const { mode } = useStorage();
   const [savedModels, setSavedModels] = useState<ModelIndexEntry[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
   const [isExportingAll, setIsExportingAll] = useState(false);
   const [exportAllError, setExportAllError] = useState<string | null>(null);
+
+  const importState = useImportState({
+    storage: ahpState.storage,
+    mode,
+    userId,
+    loadModel: ahpState.loadModel,
+    onDecisionOpened,
+  });
 
   useEffect(() => {
     void ahpState.storage.listModels().then(setSavedModels);
   }, [ahpState.storage]);
 
-  // Re-fetch the model list when AuthContext claims pending invitations.
-  // The custom event is dispatched after a successful claim so newly
-  // shared decisions appear without a manual reload.
+  // Re-fetch the model list when AuthContext claims pending invitations OR
+  // when an import writes new/replaced models (useImportState dispatches the
+  // same event). The listener is idempotent across both sources.
   useEffect(() => {
     const onChanged = () => {
       void ahpState.storage.listModels().then(setSavedModels);
@@ -66,30 +72,6 @@ export default function DashboardPanel({ ahpState, userId, onDecisionOpened }: D
     if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return;
     await ahpState.storage.deleteModel(modelId);
     setSavedModels(await ahpState.storage.listModels());
-  };
-
-  const handleImportClick = () => {
-    setImportError(null);
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setIsImporting(true);
-    setImportError(null);
-    try {
-      const text = await file.text();
-      const newModelId = await importModel(ahpState.storage, text, userId);
-      setSavedModels(await ahpState.storage.listModels());
-      await ahpState.loadModel(newModelId);
-      onDecisionOpened();
-    } catch (err) {
-      setImportError((err as Error).message);
-    } finally {
-      setIsImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
   };
 
   const handleExportAll = async () => {
@@ -145,11 +127,15 @@ export default function DashboardPanel({ ahpState, userId, onDecisionOpened }: D
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Decisions</h2>
         <div className="flex gap-2">
           <button
-            onClick={handleImportClick}
-            disabled={isImporting}
+            onClick={importState.handleImportClick}
+            disabled={importState.isBusy}
             className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-xs font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
           >
-            {isImporting ? 'Importing…' : 'Import'}
+            {importState.phase.tag === 'applying'
+              ? 'Importing…'
+              : importState.phase.tag === 'parsing'
+                ? 'Reading…'
+                : 'Import'}
           </button>
           <button
             onClick={() => { void handleExportAll(); }}
@@ -165,20 +151,23 @@ export default function DashboardPanel({ ahpState, userId, onDecisionOpened }: D
             + New Decision
           </button>
           <input
-            ref={fileInputRef}
+            ref={importState.fileInputRef}
             type="file"
             name="importJsonFile"
             accept="application/json,.json"
-            onChange={(e) => { void handleFileChange(e); }}
+            onChange={(e) => { void importState.handleFileChange(e); }}
             className="hidden"
           />
         </div>
       </div>
 
-      {importError && (
+      {importState.importError && (
         <div className="text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md p-2">
-          {importError}
+          {importState.importError}
         </div>
+      )}
+      {importState.phase.tag !== 'idle' && (
+        <ImportPreviewSection importState={importState} />
       )}
       {exportAllError && (
         <div className="text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md p-2">

@@ -110,6 +110,92 @@ describe('LocalStorageAdapter', () => {
       expect(list[0]!.title).toBe('A');
       expect(list[1]!.title).toBe('B');
     });
+
+    it('listModels returns role=owner for every entry (local mode)', async () => {
+      await adapter.createModel('m1', createModelDoc('A', 'G', 'u'), createStructureDoc());
+      const list = await adapter.listModels();
+      expect(list[0]!.role).toBe('owner');
+    });
+  });
+
+  // ─── replaceModelFromBundle (v0.16.0) ───────────────────────────────
+  describe('replaceModelFromBundle', () => {
+    it('throws when the model does not exist (no orphan write)', async () => {
+      const bundle = {
+        meta: createModelDoc('New', 'G', 'u'),
+        structure: createStructureDoc(),
+        collaborators: [createCollaboratorDoc('u', 'owner', true)],
+        responses: { u: createResponseDoc('u') },
+        synthesis: null,
+      };
+      await expect(
+        adapter.replaceModelFromBundle('does-not-exist', bundle),
+      ).rejects.toThrow(/not found/);
+    });
+
+    it('preserves order, createdAt, createdBy, _originRef from existing meta', async () => {
+      const originalMeta = createModelDoc('Original', 'G', 'original-user');
+      originalMeta.createdAt = 1_000_000;
+      originalMeta._originRef = 'original-workspace';
+      await adapter.createModel('m1', originalMeta, createStructureDoc());
+
+      const bundle = {
+        meta: { ...createModelDoc('Replaced', 'NewGoal', 'importer'), createdAt: 9_999_999, _originRef: 'importer-workspace' },
+        structure: createStructureDoc(),
+        collaborators: [createCollaboratorDoc('importer', 'owner', true)],
+        responses: { importer: createResponseDoc('importer') },
+        synthesis: null,
+      };
+      await adapter.replaceModelFromBundle('m1', bundle);
+
+      const loaded = await adapter.getModel('m1');
+      expect(loaded!.meta.title).toBe('Replaced');
+      expect(loaded!.meta.goal).toBe('NewGoal');
+      // Identity fields preserved from existing
+      expect(loaded!.meta.createdAt).toBe(1_000_000);
+      expect(loaded!.meta.createdBy).toBe('original-user');
+      expect(loaded!.meta._originRef).toBe('original-workspace');
+    });
+
+    it('clears old collaborators and responses, writes new ones from bundle', async () => {
+      await adapter.createModel('m1', createModelDoc('A', 'G', 'old-user'), createStructureDoc());
+      await adapter.addCollaborator('m1', createCollaboratorDoc('stale-user', 'editor', true));
+      await adapter.createResponse('m1', createResponseDoc('stale-user'));
+
+      const bundle = {
+        meta: createModelDoc('Replaced', 'G', 'importer'),
+        structure: createStructureDoc(),
+        collaborators: [createCollaboratorDoc('importer', 'owner', true)],
+        responses: { importer: createResponseDoc('importer') },
+        synthesis: null,
+      };
+      await adapter.replaceModelFromBundle('m1', bundle);
+
+      const collabs = await adapter.getCollaborators('m1');
+      expect(collabs.map((c) => c.userId)).toEqual(['importer']);
+      expect(await adapter.getResponse('m1', 'stale-user')).toBeNull();
+      expect(await adapter.getResponse('m1', 'importer')).not.toBeNull();
+    });
+
+    it('updates title/status in modelIndex while preserving order', async () => {
+      await adapter.createModel('m1', createModelDoc('A', 'G', 'u'), createStructureDoc());
+      await adapter.createModel('m2', createModelDoc('B', 'G', 'u'), createStructureDoc());
+
+      const bundle = {
+        meta: { ...createModelDoc('A-Replaced', 'G', 'u'), status: 'closed' as const },
+        structure: createStructureDoc(),
+        collaborators: [createCollaboratorDoc('u', 'owner', true)],
+        responses: { u: createResponseDoc('u') },
+        synthesis: null,
+      };
+      await adapter.replaceModelFromBundle('m1', bundle);
+
+      const list = await adapter.listModels();
+      expect(list[0]!.modelId).toBe('m1');
+      expect(list[0]!.title).toBe('A-Replaced');
+      expect(list[0]!.status).toBe('closed');
+      expect(list[1]!.modelId).toBe('m2');
+    });
   });
 
   // ─── Comparisons ─────────────────────────────────────────────
