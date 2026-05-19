@@ -92,6 +92,7 @@ export class LocalStorageAdapter implements StorageAdapter {
       status: metaDoc.status,
       createdAt: metaDoc.createdAt,
       order: nextOrder,
+      role: 'owner',
     });
     setJSON(key('modelIndex'), index);
   }
@@ -109,6 +110,62 @@ export class LocalStorageAdapter implements StorageAdapter {
 
     if (bundle.synthesis && bundle.meta.publishedSynthesisId) {
       await this.saveSynthesis(modelId, bundle.meta.publishedSynthesisId, bundle.synthesis);
+    }
+  }
+
+  async replaceModelFromBundle(existingModelId: string, bundle: AHPExportBundle): Promise<void> {
+    const existingMeta = getJSON<ModelDoc>(key('models', existingModelId, 'meta'));
+    // Guard: throw if the model does not exist rather than silently creating
+    // an orphan doc without a matching modelIndex entry.
+    if (!existingMeta) {
+      throw new Error(`replaceModelFromBundle: model ${existingModelId} not found in local storage.`);
+    }
+
+    // Preserve identity fields from existing meta — consistent with the
+    // Firestore adapter. _changeLog comes from the bundle (provenance).
+    const preservedMeta: ModelDoc = {
+      ...bundle.meta,
+      createdAt: existingMeta.createdAt,
+      createdBy: existingMeta.createdBy,
+      _originRef: existingMeta._originRef,
+    };
+    setJSON(key('models', existingModelId, 'meta'), preservedMeta);
+    setJSON(key('models', existingModelId, 'structure'), bundle.structure);
+
+    // Clear existing collaborator and response lists, then rewrite.
+    const oldCollabList = getJSON<string[]>(key('models', existingModelId, 'collaboratorList')) ?? [];
+    for (const uid of oldCollabList) {
+      removeKey(key('models', existingModelId, 'collaborators', uid));
+    }
+    setJSON(key('models', existingModelId, 'collaboratorList'), []);
+
+    const oldResponseList = getJSON<string[]>(key('models', existingModelId, 'responseList')) ?? [];
+    for (const uid of oldResponseList) {
+      removeKey(key('models', existingModelId, 'responses', uid));
+    }
+    setJSON(key('models', existingModelId, 'responseList'), []);
+
+    // addCollaborator creates a fresh empty response slot as a side-effect.
+    // The subsequent createResponse loop overwrites that slot with the actual
+    // response doc. Two writes per key — functionally correct; do not remove
+    // the createResponse loop thinking addCollaborator is sufficient.
+    for (const c of bundle.collaborators) {
+      await this.addCollaborator(existingModelId, c);
+    }
+    for (const responseDoc of Object.values(bundle.responses)) {
+      await this.createResponse(existingModelId, responseDoc);
+    }
+    if (bundle.synthesis && bundle.meta.publishedSynthesisId) {
+      await this.saveSynthesis(existingModelId, bundle.meta.publishedSynthesisId, bundle.synthesis);
+    }
+
+    // Preserve order and role; update title/status in modelIndex.
+    const index = getJSON<ModelIndexEntry[]>(key('modelIndex')) ?? [];
+    const entry = index.find((e) => e.modelId === existingModelId);
+    if (entry) {
+      entry.title = bundle.meta.title;
+      entry.status = bundle.meta.status;
+      setJSON(key('modelIndex'), index);
     }
   }
 
@@ -170,12 +227,16 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   async listModels(): Promise<ModelIndexEntry[]> {
     const entries = getJSON<ModelIndexEntry[]>(key('modelIndex')) ?? [];
-    return [...entries].sort((a, b) => {
-      const ao = a.order ?? Number.MAX_SAFE_INTEGER;
-      const bo = b.order ?? Number.MAX_SAFE_INTEGER;
-      if (ao !== bo) return ao - bo;
-      return a.createdAt - b.createdAt;
-    });
+    // Local mode: the device-owner created every entry. role is always 'owner'.
+    // The map ensures legacy entries persisted before v0.16.0 also carry the field.
+    return entries
+      .map((e) => ({ ...e, role: 'owner' as const }))
+      .sort((a, b) => {
+        const ao = a.order ?? Number.MAX_SAFE_INTEGER;
+        const bo = b.order ?? Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+        return a.createdAt - b.createdAt;
+      });
   }
 
   async reorderModels(orderedIds: string[]): Promise<void> {

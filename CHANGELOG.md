@@ -1,5 +1,41 @@
 # SPERT® AHP — Changelog
 
+## v0.16.0 (May 19, 2026)
+
+Level 4 import upgrade. Closes a live incompatibility where the Export All button produced files the Import button refused to read, adds a per-model conflict-resolution preview, and hardens the cloud-side replace path with transaction-level owner enforcement.
+
+### Import — Level 4 upgrade
+- **Bundle format now imports.** Previously, importing a file produced by Export All failed with `Missing required field 'spertAhpExportVersion'` because bundles carry the distinct top-level field `spertAhpBundleVersion`. `parseAndClassifyImport` now recognizes both formats; the same Import button handles single-decision and bundle files transparently.
+- **Bundles with invalid envelopes no longer abort the entire import.** Each invalid envelope (untitled drafts, oversized payloads, malformed shape) is surfaced as a red row in the preview with a specific error message, while valid envelopes can still be imported.
+- **One-click vs. two-click by storage mode.** In local mode, a conflict-free single-decision import completes in one click with no confirmation. In cloud mode, the preview panel is always shown because Firestore's local cache may return an empty `listModels()` immediately after sign-in.
+- **Per-model conflict detection.** ID match and normalized-title name match. All conflicts default to `skip`; the user must affirmatively select `add` or `replace`. `Replace` is gated on ownership — `Cannot replace … — you are not the owner` for editor/viewer roles; `Cannot replace … — multiple existing decisions share this name` when normalized-title matches are ambiguous.
+- **Replace-All confirmation modal.** Final guard before destructive writes. If two selections target the same existing decision, only the first applies (disclosed in modal). Modal Cancel returns to the preview panel.
+- **Replace preserves sharing and identity.** Cloud editors/viewers remain members. Collaborators' prior judgments are not carried over (the new structure may not align with their existing comparisons). Original `createdAt`, `createdBy`, and `_originRef` are preserved. Pre-replace `_changeLog` is replaced by the imported model's provenance — known limitation noted in the implementation plan.
+- **Owner-only replace enforced in the Firestore transaction**, not just the UI. An editor or viewer calling `replaceModelFromBundle` directly will be rejected at the database layer with `Only the project owner can replace this decision.`
+- **Byte-accurate size enforcement.** 10 MB outer cap, 900 KB per envelope, measured in UTF-8 bytes via `TextEncoder`. The previous character-count approach could let non-ASCII payloads (CJK titles, emoji) exceed Firestore's 1 MB document limit.
+- **Result banner.** Per-action counts (added, replaced, skipped, failed) plus per-model error reasons. When exactly one decision is written with no errors or skips, the imported decision auto-opens without a banner. All-skip shows the count rather than silently closing the import flow.
+- **New `parsing` phase** covers the file-pick + Layer-1-detect window; the Import button is disabled across `parsing`, `preview`, `replace-confirm`, and `applying`, closing the silent-drop window when a user re-clicks Import mid-read.
+- **Mid-apply storage swap surfaces a banner.** If sign-in triggers a storage flip during an in-flight import, the user now sees an explicit "Storage mode changed during import — verify your decisions list" rather than the apply silently completing against the prior storage. Auto-load and `spert:models-changed` are suppressed in this path.
+- **`ModelIndexEntry.role`** added as a required field. Local mode emits `'owner'`; cloud mode resolves from the doc's `members.{uid}` map.
+- **StrictMode mount-ref fix.** Caught during live-UI verification: the `isMountedRef` cleanup callback used a setup-returns-cleanup pattern that never re-set `current = true`. Under React.StrictMode's dev double-invoke (mount → cleanup → mount), the ref stayed `false`, silently swallowing the `setPhase(banner)` at runApply exit. Live UI appeared stuck on "Importing…" with no banner even after the write completed. Fixed: setup now explicitly sets `current = true`. Regression test added under `useImportState — StrictMode mount safety`.
+
+### Known cloud-mode limitation
+- Immediately after sign-in, the cloud model list may not be fully populated. Importing during this window can miss conflicts that exist server-side. Wait a moment after sign-in before importing if you have many shared decisions. A hydration-aware fix (FirestoreAdapter exposing a hydration signal) is planned for v0.17.0.
+
+### Tests
+- New `src/storage/__tests__/import-utils.test.ts` (33 tests) — parse classification, byte-accurate size caps, conflict detection (single match / multi-candidate / role gating / empty-title exclusion), `conflictMapsEqual` field coverage, `applyImportMerge` add/skip/replace/dedup/Layer-2-abort/all-skip.
+- New `src/storage/__tests__/FirestoreAdapter.replace.test.ts` (9 tests) — `runTransaction` owner gate, snap-not-found rejection, identity-field preservation, fresh response slot creation with bundle's `structureVersionAtSubmission`.
+- New `src/hooks/__tests__/useImportState.test.tsx` (13 tests) — phase machine end-to-end, **C1 regression** (AD-9 fast-path actually writes — not falsely blocked by reentrancy guard), C2 bundle parse-error surfacing, banner dismiss, cancel-from-replace-confirm, **StrictMode mount regression** (covers the `isMountedRef` cleanup-only bug below).
+- `LocalStorageAdapter.test.ts`: 5 new tests for `replaceModelFromBundle` (existence check, identity preservation, collaborator/response replacement, modelIndex update).
+- `exportImport.test.ts`: 5 new tests for bundle round-trip, the v0.15.x bundle-rejection regression, empty-title parse-error surfacing, and oversized per-envelope enforcement.
+
+### Architecture
+- New file `src/storage/import-utils.ts` — pure functions for parse/classify/conflict-detect/apply.
+- New file `src/hooks/useImportState.ts` — phase-based discriminated union with separated `applyActiveRef` and `runApplyEnteredRef` (the latter prevents external pre-sets from falsely tripping the reentrancy guard).
+- New file `src/components/setup/ImportPreviewSection.tsx` — preview / replace-confirm / banner / parsing / applying rendering with a shared `PerModelDecisionRows` subcomponent.
+- New adapter method `replaceModelFromBundle(existingModelId, bundle)` on both `LocalStorageAdapter` and `FirestoreAdapter`. Firestore variant wraps a `runTransaction` matching the v0.15.0 audit-finding-#2 pattern.
+- New exports on `importModel.ts`: `buildBundleFromEnvelope`, `generateModelId`. The single-shot `importModel()` retains its current UID-remap logic unchanged; consolidation tracked for v0.17.0.
+
 ## v0.15.0 (May 9, 2026)
 
 Independent v0.14.0 security and code-quality audit produced 7 actionable findings; v0.15.0 ships 6 targeted fixes plus a comment-only doc update for the deferred trade-off. No new dependencies, no structural changes to auth, storage, or the invitation state machine.

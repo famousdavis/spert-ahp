@@ -99,6 +99,8 @@ export interface ModelIndexEntry {
   /** 0-indexed display order. Optional for backwards compat with v0.9.x rows;
    *  entries without `order` sort to the bottom by createdAt. */
   order?: number;
+  /** Current user's role for this model. Always 'owner' in local mode. */
+  role: CollaboratorRole;
 }
 
 // ─── Math Results ────────────────────────────────────────────
@@ -341,6 +343,19 @@ export interface PendingInvite {
 export interface StorageAdapter {
   createModel(modelId: string, metaDoc: ModelDoc, structureDoc: StructureDoc): Promise<void>;
   createModelFromBundle(modelId: string, bundle: AHPExportBundle): Promise<void>;
+  /**
+   * Overwrite an existing model's content in place. Preserves: display order,
+   * identity fields (createdAt, _originRef, createdBy), and sharing config
+   * (members, collaborators). For non-importer members, creates fresh empty
+   * response slots — stale positional data from the old structure is not
+   * preserved, as it would corrupt synthesis against new criteria/alternatives.
+   * _changeLog is replaced by the bundle's provenance history.
+   *
+   * Caller responsibility: existingModelId must be owned by the current user.
+   * FirestoreAdapter additionally enforces owner-only at the transaction layer
+   * as defense-in-depth (v0.16.0).
+   */
+  replaceModelFromBundle(existingModelId: string, bundle: AHPExportBundle): Promise<void>;
   getModel(modelId: string): Promise<{ meta: ModelDoc; structure: StructureDoc } | null>;
   updateModel(modelId: string, partialMeta: Partial<ModelDoc>): Promise<void>;
   deleteModel(modelId: string): Promise<void>;

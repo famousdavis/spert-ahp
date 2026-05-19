@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { callRevokeInvite, callResendInvite, callUpdateInvite } from '../lib/callables';
+import { createResponseDoc } from '../core/models/AHPModel';
 import {
   serializeSynthesisForFirestore,
   deserializeSynthesisFromFirestore,
@@ -237,6 +238,96 @@ export class FirestoreAdapter implements StorageAdapter {
     await setDoc(docRef(modelId), payload);
   }
 
+  async replaceModelFromBundle(existingModelId: string, bundle: AHPExportBundle): Promise<void> {
+    const now = Date.now();
+    // runTransaction matches the v0.15.0 audit-finding-#2 pattern used in
+    // addCollaborator/updateCollaborator/removeCollaborator. Prevents a
+    // lost-write race where a collaborator's saveComparisons between getDoc
+    // and setDoc would be overwritten by the replace.
+    await runTransaction(requireDb(), async (tx) => {
+      const ref = docRef(existingModelId);
+      const snap = await tx.get(ref);
+
+      // C3 defense-in-depth: enforce owner-only at the transaction layer.
+      // Without this, an editor/viewer calling replaceModelFromBundle directly
+      // (DevTools, hostile script, future refactor that bypasses the UI's
+      // replaceGated check) could overwrite a doc they don't own.
+      if (!snap.exists()) {
+        throw new Error('Cannot replace: project not found. It may have been deleted.');
+      }
+      const d = snap.data() as FirestoreModelDoc;
+      if (d.owner !== this.uid) {
+        console.warn('[FirestoreAdapter] non-owner attempted replaceModelFromBundle — UI gating bypass?');
+        throw new Error('Only the project owner can replace this decision.');
+      }
+
+      const existingOrder = typeof d.order === 'number' ? d.order : undefined;
+      const existingMembers = d.members ?? { [this.uid]: 'owner' };
+      const existingCollaborators = d.collaborators ?? [{ userId: this.uid, role: 'owner', isVoting: true }];
+      const existingCreatedAt = typeof d.createdAt === 'number' ? d.createdAt : (bundle.meta.createdAt ?? now);
+      const existingCreatedBy =
+        typeof d.createdBy === 'string' && d.createdBy ? d.createdBy : bundle.meta.createdBy;
+      const existingOriginRef =
+        typeof d._originRef === 'string' && d._originRef ? d._originRef : bundle.meta._originRef;
+
+      // Slot-only response preservation (AD-8): fresh empty slots for
+      // non-importer members. Stale positional data from the old structure
+      // is not preserved — it would corrupt synthesis against new
+      // criteria/alternatives. Overrides on createResponseDoc:
+      //   - lastModifiedAt → `now` (transaction-local; deterministic across slots)
+      //   - structureVersionAtSubmission → bundle.structure.structureVersion
+      //     (so fresh slots are not treated as perpetually stale)
+      const mergedResponses: Record<string, ResponseDoc> = { ...bundle.responses };
+      for (const collab of existingCollaborators) {
+        if (collab.userId === this.uid) continue;
+        if (!mergedResponses[collab.userId]) {
+          mergedResponses[collab.userId] = {
+            ...createResponseDoc(collab.userId),
+            lastModifiedAt: now,
+            structureVersionAtSubmission: bundle.structure.structureVersion,
+          };
+        }
+      }
+
+      const synthesisField: FirestoreModelDoc['synthesis'] =
+        bundle.synthesis && bundle.meta.publishedSynthesisId
+          ? (serializeSynthesisForFirestore(
+              bundle.meta.publishedSynthesisId,
+              bundle.synthesis,
+            ) as unknown as FirestoreSynthesis)
+          : null;
+
+      const payload: FirestoreModelDoc = {
+        owner: this.uid,
+        // bundle.collaborators is intentionally discarded — sharing config is
+        // taken from the existing cloud document to prevent unauthorized member
+        // additions from an import file.
+        members: existingMembers,
+        collaborators: existingCollaborators,
+        title: bundle.meta.title,
+        goal: bundle.meta.goal,
+        createdBy: existingCreatedBy,
+        createdAt: existingCreatedAt,
+        updatedAt: now,
+        status: bundle.meta.status,
+        completionTier: bundle.meta.completionTier,
+        synthesisStatus: bundle.meta.synthesisStatus,
+        disagreementConfig: bundle.meta.disagreementConfig,
+        publishedSynthesisId: bundle.meta.publishedSynthesisId,
+        criteria: bundle.structure.criteria,
+        alternatives: bundle.structure.alternatives,
+        structureVersion: bundle.structure.structureVersion,
+        responses: mergedResponses,
+        synthesis: synthesisField,
+        ...(typeof existingOrder === 'number' ? { order: existingOrder } : {}),
+        _originRef: existingOriginRef,
+        _changeLog: bundle.meta._changeLog,
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+      };
+      tx.set(ref, payload);
+    });
+  }
+
   async getModel(modelId: string): Promise<{ meta: ModelDoc; structure: StructureDoc } | null> {
     const snap = await getDoc(docRef(modelId));
     if (!snap.exists()) return null;
@@ -266,12 +357,16 @@ export class FirestoreAdapter implements StorageAdapter {
     const entries: ModelIndexEntry[] = [];
     snap.forEach((s) => {
       const d = s.data() as FirestoreModelDoc;
+      // Defensive default to 'viewer' — most-restrictive — should never fire
+      // because the query filter requires members[this.uid] in (owner/editor/viewer).
+      const role = (d.members?.[this.uid] ?? 'viewer') as CollaboratorRole;
       entries.push({
         modelId: s.id,
         title: d.title,
         status: d.status,
         createdAt: d.createdAt,
         order: typeof d.order === 'number' ? d.order : undefined,
+        role,
       });
     });
     // Sort: rows with `order` first (ascending), then rows without by createdAt asc

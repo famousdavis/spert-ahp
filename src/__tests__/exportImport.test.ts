@@ -6,7 +6,9 @@ import { renderHook, act } from '@testing-library/react';
 import { useAHP } from '../hooks/useAHP';
 import { LocalStorageAdapter } from '../storage/LocalStorageAdapter';
 import { exportModel } from '../storage/exportModel';
+import { exportAllModels } from '../storage/exportAllModels';
 import { importModel } from '../storage/importModel';
+import { parseAndClassifyImport, MAX_ENVELOPE_BYTES } from '../storage/import-utils';
 import { TestProviders } from './test-utils';
 import type { AHPExportEnvelope, ModelDoc, StructureDoc } from '../types/ahp';
 
@@ -383,5 +385,130 @@ describe('exportImport — Group 4: UID remap + synthesis strip', () => {
 
     const resp = await adapter.getResponse(newModelId, 'new-user');
     expect(resp!.criteriaMatrix['0,1']).toBe(7);
+  });
+});
+
+// ─── v0.16.0: bundle import format (Level 4) ───────────────────────────
+describe('exportImport — Group 5: bundle format round-trip (v0.16.0)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('exportAllModels → parseAndClassifyImport detects type=bundle', async () => {
+    const adapter = new LocalStorageAdapter();
+    const { result: rA } = renderHook(() => useAHP(USER_A), { wrapper: TestProviders });
+    let m1: string | undefined;
+    let m2: string | undefined;
+    await act(async () => {
+      m1 = await rA.current.createModel('First', 'G1');
+      m2 = await rA.current.createModel('Second', 'G2');
+    });
+    const bundle = await exportAllModels(adapter, [m1!, m2!], 'workspace-A');
+    const parsed = parseAndClassifyImport(JSON.stringify(bundle));
+    expect(parsed.type).toBe('bundle');
+    expect(parsed.envelopes).toHaveLength(2);
+    expect(parsed.parseErrors).toHaveLength(0);
+  });
+
+  it('regression: importing a bundle file no longer reports the v0.15.x error', () => {
+    // Pre-v0.16.0, the importModel single-shot path threw
+    // "Missing required field 'spertAhpExportVersion'" against any bundle
+    // file because bundles use spertAhpBundleVersion. parseAndClassifyImport
+    // recognizes both formats.
+    const bundle = {
+      spertAhpBundleVersion: 1,
+      appVersion: '0.16.0',
+      exportedAt: 0,
+      models: [
+        {
+          spertAhpExportVersion: 1,
+          appVersion: '0.16.0',
+          exportedAt: 0,
+          sourceModelId: 'm1',
+          _exportedBy: null,
+          _storageRef: 'ws',
+          meta: baseMeta(),
+          structure: baseStructure(),
+          collaborators: [{ userId: 'alice', role: 'owner', isVoting: true }],
+          responses: {
+            alice: {
+              userId: 'alice',
+              status: 'in_progress',
+              criteriaMatrix: {},
+              alternativeMatrices: {},
+              cr: {},
+              lastModifiedAt: 1,
+              structureVersionAtSubmission: 1,
+            },
+          },
+          synthesis: null,
+        },
+      ],
+    };
+    expect(() => parseAndClassifyImport(JSON.stringify(bundle))).not.toThrow();
+  });
+
+  it('bundle with empty-title envelope produces parseError, not throw (C2)', () => {
+    const bundle = {
+      spertAhpBundleVersion: 1,
+      appVersion: '0.16.0',
+      exportedAt: 0,
+      models: [
+        {
+          spertAhpExportVersion: 1,
+          appVersion: '0.16.0',
+          exportedAt: 0,
+          sourceModelId: 'm1',
+          _exportedBy: null,
+          _storageRef: 'ws',
+          meta: baseMeta({ title: '' }),
+          structure: baseStructure(),
+          collaborators: [{ userId: 'alice', role: 'owner', isVoting: true }],
+          responses: {},
+          synthesis: null,
+        },
+      ],
+    };
+    const parsed = parseAndClassifyImport(JSON.stringify(bundle));
+    expect(parsed.type).toBe('bundle');
+    expect(parsed.envelopes).toHaveLength(0);
+    expect(parsed.parseErrors).toHaveLength(1);
+    expect(parsed.parseErrors[0]!.reason).toMatch(/title is required/);
+  });
+
+  it('empty bundle (models: []) → "Bundle export contains no models."', () => {
+    expect(() =>
+      parseAndClassifyImport(
+        JSON.stringify({ spertAhpBundleVersion: 1, appVersion: '0.16.0', exportedAt: 0, models: [] }),
+      ),
+    ).toThrow(/Bundle export contains no models/);
+  });
+
+  it('oversized per-envelope (single import) — byte-accurate cap', () => {
+    const huge = 'X'.repeat(MAX_ENVELOPE_BYTES);
+    const envelope = {
+      spertAhpExportVersion: 1,
+      appVersion: '0.16.0',
+      exportedAt: 0,
+      sourceModelId: 'm1',
+      _exportedBy: null,
+      _storageRef: 'ws',
+      meta: { ...baseMeta(), goal: huge },
+      structure: baseStructure(),
+      collaborators: [{ userId: 'alice', role: 'owner', isVoting: true }],
+      responses: {
+        alice: {
+          userId: 'alice',
+          status: 'in_progress',
+          criteriaMatrix: {},
+          alternativeMatrices: {},
+          cr: {},
+          lastModifiedAt: 1,
+          structureVersionAtSubmission: 1,
+        },
+      },
+      synthesis: null,
+    };
+    expect(() => parseAndClassifyImport(JSON.stringify(envelope))).toThrow(/per-model limit/);
   });
 });

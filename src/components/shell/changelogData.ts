@@ -9,6 +9,47 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.16.0',
+    date: '2026-05-19',
+    sections: [
+      {
+        title: 'Import — Level 4 upgrade',
+        items: [
+          'Import now handles both single-decision exports and bundle exports (the file produced by Export All). Previously, importing a bundle file produced "Missing required field \'spertAhpExportVersion\'" — bundle files use the distinct top-level field spertAhpBundleVersion. This was a live incompatibility between the Export All and Import buttons',
+          'Bundles with invalid envelopes no longer abort the entire import. Each invalid envelope (untitled drafts, oversized payloads, malformed shape) is surfaced as a red row in the preview with a specific error, while valid envelopes can still be imported',
+          'In local storage mode, conflict-free single-decision imports complete in one click with no confirmation step. In cloud storage mode, the preview panel is always shown because the cloud model list may not be fully hydrated immediately after sign-in',
+          'Per-model conflict detection (ID match and name match) with a preview panel. All conflicts default to skip; the user must affirmatively select add or replace. Replace is only available for decisions you own; when multiple existing decisions share a normalized title, replace is disabled with a tooltip explaining the ambiguity',
+          'The Add radio in conflict rows now tooltips: "Creates a new copy of this decision, owned by you. The original is unchanged."',
+          'Replace-All confirmation modal. If two selections target the same existing decision, only the first applies (disclosed in the modal). Modal Cancel returns to the preview panel',
+          'Replacing a decision preserves cloud sharing (editors and viewers remain members). Collaborators\' prior judgments are not carried over — previous comparisons referenced the old criteria/alternatives. The decision\'s original creation date, authorship, and workspace fingerprint are preserved. The pre-replace edit history is replaced by the imported model\'s provenance',
+          'Owner-only replace is enforced both in the UI and inside the Firestore transaction (defense-in-depth: an editor or viewer attempting a replace via direct adapter call will be rejected at the database layer, not just the UI)',
+          'File size limits are enforced in UTF-8 bytes (10 MB outer, 900 KB per envelope), matching Firestore\'s actual document limit. The previous character-count check could let non-ASCII payloads exceed the storage limit',
+          'Result banner shows per-action counts (added, replaced, skipped, failed) and per-model error reasons. When exactly one decision is written with no errors or skips, the imported decision auto-opens without a banner. All-skip shows the count rather than silently closing',
+          'A new "Reading…" phase covers the file-pick window; the Import button is disabled across reading, preview, replace-confirm, and applying',
+          'If storage mode changes during an in-flight import (e.g., sign-in triggers a flip), the user is now shown an explicit warning banner rather than the import silently completing against the previous storage',
+          'ModelIndexEntry now includes a required role field',
+          'StrictMode mount-ref fix in useImportState. Caught during live-UI verification: the isMountedRef cleanup callback used a setup-returns-cleanup pattern that never re-set current=true. Under React.StrictMode dev double-invoke (mount → cleanup → mount), the ref stayed false and setPhase(banner) at runApply exit was silently swallowed — live UI appeared stuck on "Importing…" with no banner even after the write completed. Fixed: setup now explicitly sets current=true. Regression test added',
+        ],
+      },
+      {
+        title: 'Known cloud-mode limitation',
+        items: [
+          'Immediately after sign-in, the cloud model list may not be fully populated. Importing during this window can miss conflicts that exist server-side. Wait a moment after sign-in before importing if you have many shared decisions. A hydration-aware fix is planned for v0.17.0',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          'New import-utils.test.ts (33 tests) — parseAndClassifyImport, detectAHPImportConflicts, applyImportMerge, conflictMapsEqual, byte-accurate size caps, multi-candidate name match',
+          'New FirestoreAdapter.replace.test.ts (9 tests) — runTransaction owner gate, identity-field preservation, fresh response slot creation',
+          'New useImportState.test.tsx (12 tests) — phase machine, C1 reentrancy-guard regression, C2 bundle parse-error surfacing, dismiss-banner, cancel-from-replace-confirm',
+          'LocalStorageAdapter.test.ts: 5 new tests for replaceModelFromBundle',
+          'exportImport.test.ts: 5 new tests for bundle format round-trip and the v0.15.x bundle-rejection regression',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.15.0',
     date: '2026-05-09',
     sections: [
