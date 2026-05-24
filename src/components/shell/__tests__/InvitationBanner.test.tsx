@@ -42,6 +42,8 @@ function makeWrapper(opts: WrapperOpts = {}) {
     mode: 'local' as const,
     isCloudAvailable: opts.firebaseAvailable ?? true,
     switchMode: () => {},
+    cloudDataLoaded: true,
+    setCloudDataLoaded: () => {},
   };
   return function Wrapper({ children }: { children: ReactNode }) {
     return (

@@ -1,5 +1,22 @@
 # SPERT® AHP — Changelog
 
+## v0.17.0 (May 24, 2026)
+
+Cloud import readiness gate, import defensive hardening, and legacy cleanup.
+
+### Import — cloud hydration gate
+- **Cloud decisions gate the Import button until the initial Firestore fetch completes.** Previously, signing in and immediately picking an import file would call `listModels()` against an empty local cache, silently missing all conflicts. The Import button is now disabled with an amber hint banner ("Cloud decisions are still loading…") until the first `listModels()` resolves. Mid-preview storage changes continue to abort the import flow as before.
+- **Confirm Import and Confirm Replace now check cloud readiness as a secondary guard.** If the cloud fetch has not completed when the user confirms, they receive a clear error rather than proceeding against a stale conflict map.
+- **`StorageContext` resets cloud-readiness atomically with the adapter swap.** No render window exists between "new adapter" and "Import button disabled."
+
+### Import — defensive hardening
+- **`runApply` exit logic moved to `finally` block.** `applyActiveRef` and `runApplyEnteredRef` resets are now guaranteed to run regardless of throw.
+- **`aria-busy` added to Import button during `applying` and `parsing` phases.** Screen readers announce in-progress states correctly.
+- **Result and error banners use `role="alert"` (errors) or `role="status"` (success).** Screen readers announce import outcomes without requiring navigation to the banner.
+
+### Import — legacy cleanup
+- **`importModel()` removed.** The pre-v0.16.0 single-shot import function had no production callers after v0.16.0's `applyImportMerge` introduction. Its 9 tests have been migrated to the current `parseAndClassifyImport + buildBundleFromEnvelope` path or deleted where already covered. Consolidates the duplicated UID-remap logic behind `buildBundleFromEnvelope`.
+
 ## v0.16.1 (May 24, 2026)
 
 About page polish — renames the QRG download button to match the canonical label shared across all SPERT® Suite apps.

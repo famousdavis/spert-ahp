@@ -54,14 +54,22 @@ export interface UseImportStateArgs {
   userId: string;
   loadModel: (modelId: string) => Promise<void>;
   onDecisionOpened: () => void;
+  /** True once the active adapter's initial listModels() has resolved.
+   *  Always true in local mode. Passed as a prop (not read from context)
+   *  so the hook remains independently testable without a StorageProvider. */
+  cloudDataLoaded: boolean;
 }
 
 export interface UseImportStateReturn {
   phase: ImportPhase;
   fileInputRef: React.RefObject<HTMLInputElement>;
   importError: string | null;
-  /** True when the Import button should be disabled. */
+  /** True when the Import button should be disabled because an import flow
+   *  is in progress (parsing / preview / replace-confirm / applying). */
   isBusy: boolean;
+  /** True when mode is 'cloud' and cloudDataLoaded is false. DashboardPanel
+   *  uses this to disable the Import button and show the hint banner. */
+  isCloudNotReady: boolean;
   handleImportClick: () => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDecisionChange: (index: number, decision: ImportDecision) => void;
@@ -73,7 +81,8 @@ export interface UseImportStateReturn {
 }
 
 export function useImportState(args: UseImportStateArgs): UseImportStateReturn {
-  const { storage, mode, userId, loadModel, onDecisionOpened } = args;
+  const { storage, mode, userId, loadModel, onDecisionOpened, cloudDataLoaded } = args;
+  const isCloudNotReady = mode === 'cloud' && !cloudDataLoaded;
   const [phase, setPhase] = useState<ImportPhase>({ tag: 'idle' });
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -148,20 +157,14 @@ export function useImportState(args: UseImportStateArgs): UseImportStateReturn {
       setPhase({ tag: 'applying' }); // applying write-site 1 of 2
 
       let phaseOnExit: ImportPhase = { tag: 'idle' };
-      let applyResult: AHPImportResult | undefined;
       try {
-        applyResult = await applyImportMerge(
+        const applyResult = await applyImportMerge(
           storage,
           parsed.envelopes,
           decisions,
           conflicts,
           userId,
         );
-      } catch (err) {
-        setImportError((err as Error).message);
-      }
-
-      if (applyResult) {
         // Merge bundle-level parseErrors into the result's errors[] channel.
         // They aren't write failures but they belong in the same surfaced
         // feedback so users see "X added, Y failed (including bundle items
@@ -228,13 +231,18 @@ export function useImportState(args: UseImportStateArgs): UseImportStateReturn {
             }
           }
         }
-      }
-
-      // applying write-site 2 of 2. Always executes.
-      applyActiveRef.current = false;
-      runApplyEnteredRef.current = false;
-      if (isMountedRef.current) {
-        setPhase(phaseOnExit);
+      } catch (err) {
+        // Explicit reset — defensive against future edits that mutate
+        // phaseOnExit in the success block before throwing.
+        setImportError((err as Error).message);
+        phaseOnExit = { tag: 'idle' };
+      } finally {
+        // applying write-site 2 of 2. Guaranteed to run regardless of throw.
+        applyActiveRef.current = false;
+        runApplyEnteredRef.current = false;
+        if (isMountedRef.current) {
+          setPhase(phaseOnExit);
+        }
       }
     },
     [storage, userId, loadModel, onDecisionOpened],
@@ -320,6 +328,12 @@ export function useImportState(args: UseImportStateArgs): UseImportStateReturn {
 
   const handleConfirmImport = useCallback(() => {
     if (phase.tag !== 'preview') return;
+    if (isCloudNotReady) {
+      setImportError(
+        'Cloud decisions are still loading — dismiss this message and try again in a moment.',
+      );
+      return;
+    }
     const { parsed, conflicts, decisions } = phase;
     const replacedSlots = new Set<string>();
     let totalReplaceDecisions = 0;
@@ -346,7 +360,7 @@ export function useImportState(args: UseImportStateArgs): UseImportStateReturn {
       return;
     }
     void runApply(parsed, conflicts, decisions);
-  }, [runApply, phase]);
+  }, [runApply, phase, isCloudNotReady]);
 
   const handleCancelReplaceAll = useCallback(() => {
     setPhase((prev) => {
@@ -362,9 +376,15 @@ export function useImportState(args: UseImportStateArgs): UseImportStateReturn {
 
   const handleReplaceAllConfirmed = useCallback(() => {
     if (phase.tag !== 'replace-confirm') return;
+    if (isCloudNotReady) {
+      setImportError(
+        'Cloud decisions are still loading — dismiss this message and try again in a moment.',
+      );
+      return;
+    }
     const { parsed, conflicts, decisions } = phase;
     void runApply(parsed, conflicts, decisions);
-  }, [runApply, phase]);
+  }, [runApply, phase, isCloudNotReady]);
 
   const handleCancelPreview = useCallback(() => {
     resetToIdle();
@@ -382,6 +402,7 @@ export function useImportState(args: UseImportStateArgs): UseImportStateReturn {
     fileInputRef,
     importError,
     isBusy,
+    isCloudNotReady,
     handleImportClick,
     handleFileChange,
     handleDecisionChange,

@@ -82,6 +82,7 @@ interface Harness {
   loadModel: ReturnType<typeof vi.fn>;
   onDecisionOpened: ReturnType<typeof vi.fn>;
   mode: 'local' | 'cloud';
+  cloudDataLoaded: boolean;
 }
 
 function makeHarness(overrides: Partial<Harness> = {}): Harness {
@@ -90,6 +91,7 @@ function makeHarness(overrides: Partial<Harness> = {}): Harness {
     loadModel: vi.fn(async () => {}),
     onDecisionOpened: vi.fn(),
     mode: 'local',
+    cloudDataLoaded: true,
     ...overrides,
   };
 }
@@ -419,5 +421,128 @@ describe('useImportState — banner dismiss', () => {
     });
     expect(result.current.phase.tag).toBe('idle');
     expect(result.current.importError).toBeNull();
+  });
+});
+
+describe('useImportState — cloudDataLoaded gate', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('isCloudNotReady is true when mode is cloud and cloudDataLoaded is false', () => {
+    const harness = makeHarness({ mode: 'cloud', cloudDataLoaded: false });
+    const { result } = renderHook(() =>
+      useImportState({ ...harness, userId: USER }),
+    );
+    expect(result.current.isCloudNotReady).toBe(true);
+  });
+
+  it('isCloudNotReady is false in local mode regardless of cloudDataLoaded', () => {
+    const harness = makeHarness({ mode: 'local', cloudDataLoaded: false });
+    const { result } = renderHook(() =>
+      useImportState({ ...harness, userId: USER }),
+    );
+    expect(result.current.isCloudNotReady).toBe(false);
+  });
+
+  it('isCloudNotReady is false when mode is cloud and cloudDataLoaded is true', () => {
+    const harness = makeHarness({ mode: 'cloud', cloudDataLoaded: true });
+    const { result } = renderHook(() =>
+      useImportState({ ...harness, userId: USER }),
+    );
+    expect(result.current.isCloudNotReady).toBe(false);
+  });
+
+  it('handleConfirmImport sets importError and stays in preview when isCloudNotReady', async () => {
+    // Cloud mode suppresses the AD-9 fast-path; preview is always shown.
+    const harness = makeHarness({ mode: 'cloud', cloudDataLoaded: false });
+    const { result } = renderHook(() =>
+      useImportState({ ...harness, userId: USER }),
+    );
+
+    await act(async () => {
+      await result.current.handleFileChange(makeChangeEvent(makeFile(envelope())));
+    });
+    expect(result.current.phase.tag).toBe('preview');
+
+    act(() => {
+      result.current.handleConfirmImport();
+    });
+    expect(result.current.phase.tag).toBe('preview');
+    expect(result.current.importError).toMatch(/still loading/);
+  });
+
+  it('handleReplaceAllConfirmed sets importError and stays in replace-confirm when isCloudNotReady', async () => {
+    // Start with cloudDataLoaded: true so handleConfirmImport can advance
+    // to replace-confirm, then toggle to false to test the gate.
+    const harness = makeHarness({ mode: 'cloud', cloudDataLoaded: true });
+    const existingId = 'model-existing-1';
+    await harness.storage.createModel(existingId, meta(), structure());
+
+    const { result, rerender } = renderHook(
+      ({ cdl }: { cdl: boolean }) =>
+        useImportState({ ...harness, cloudDataLoaded: cdl, userId: USER }),
+      { initialProps: { cdl: true } },
+    );
+
+    // Pick a file whose sourceModelId matches the existing model → ID conflict.
+    await act(async () => {
+      await result.current.handleFileChange(
+        makeChangeEvent(makeFile(envelope({ sourceModelId: existingId }))),
+      );
+    });
+    expect(result.current.phase.tag).toBe('preview');
+
+    act(() => {
+      result.current.handleDecisionChange(0, 'replace');
+    });
+    // cloudDataLoaded: true → handleConfirmImport passes its gate.
+    act(() => {
+      result.current.handleConfirmImport();
+    });
+    expect(result.current.phase.tag).toBe('replace-confirm');
+
+    // Toggle to false — simulates cloud data becoming unavailable mid-flow.
+    rerender({ cdl: false });
+
+    act(() => {
+      result.current.handleReplaceAllConfirmed();
+    });
+    expect(result.current.phase.tag).toBe('replace-confirm');
+    expect(result.current.importError).toMatch(/still loading/);
+  });
+});
+
+describe('useImportState — runApply finally block regression (pitfall #27)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('isBusy false and phase idle after applyImportMerge rejects', async () => {
+    // Cloud mode + cloudDataLoaded: true: AD-9 fast-path suppressed,
+    // preview is shown, confirm-time guard passes.
+    const harness = makeHarness({ mode: 'cloud', cloudDataLoaded: true });
+    const { result } = renderHook(() =>
+      useImportState({ ...harness, userId: USER }),
+    );
+
+    await act(async () => {
+      await result.current.handleFileChange(makeChangeEvent(makeFile(envelope())));
+    });
+    expect(result.current.phase.tag).toBe('preview');
+
+    // applyImportMerge's first await is storage.listModels() (Layer 2 re-fetch).
+    // Rejecting it causes applyImportMerge to throw, exercising the finally block.
+    vi.spyOn(harness.storage, 'listModels').mockRejectedValueOnce(
+      new Error('Network failure'),
+    );
+
+    await act(async () => {
+      result.current.handleConfirmImport();
+    });
+
+    expect(result.current.isBusy).toBe(false);
+    expect(result.current.phase.tag).toBe('idle');
+    expect(result.current.importError).toMatch(/Network failure/);
   });
 });
