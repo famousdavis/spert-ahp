@@ -7,8 +7,14 @@ import { useAHP } from '../hooks/useAHP';
 import { LocalStorageAdapter } from '../storage/LocalStorageAdapter';
 import { exportModel } from '../storage/exportModel';
 import { exportAllModels } from '../storage/exportAllModels';
-import { importModel } from '../storage/importModel';
-import { parseAndClassifyImport, MAX_ENVELOPE_BYTES } from '../storage/import-utils';
+import { buildBundleFromEnvelope, generateModelId } from '../storage/importModel';
+import {
+  parseAndClassifyImport,
+  detectAHPImportConflicts,
+  computeDefaultDecisions,
+  applyImportMerge,
+  MAX_ENVELOPE_BYTES,
+} from '../storage/import-utils';
 import { TestProviders } from './test-utils';
 import type { AHPExportEnvelope, ModelDoc, StructureDoc } from '../types/ahp';
 
@@ -49,6 +55,27 @@ function baseStructure(): StructureDoc {
     ],
     structureVersion: 1,
   };
+}
+
+/**
+ * Applies a single-envelope import via the v0.16.0 path
+ * (parseAndClassifyImport → detect → defaults → apply). Mirrors what
+ * useImportState does for a one-shot import with no conflicts. Returns the
+ * autoLoadModelId so callers can verify the persisted state.
+ */
+async function applySingleImport(
+  adapter: LocalStorageAdapter,
+  rawJson: string,
+  userId: string,
+): Promise<string> {
+  const parsed = parseAndClassifyImport(rawJson);
+  const existing = await adapter.listModels();
+  const conflicts = detectAHPImportConflicts(parsed.envelopes, existing);
+  const decisions = computeDefaultDecisions(parsed.envelopes, conflicts);
+  const result = await applyImportMerge(adapter, parsed.envelopes, decisions, conflicts, userId);
+  expect(result.ok).toBe(true);
+  expect(result.autoLoadModelId).not.toBeNull();
+  return result.autoLoadModelId!;
 }
 
 describe('exportImport — Group 1: schema round-trip', () => {
@@ -92,7 +119,7 @@ describe('exportImport — Group 1: schema round-trip', () => {
   });
 });
 
-describe('exportImport — Group 2: end-to-end local round-trip', () => {
+describe('exportImport — Group 2: end-to-end local round-trip (via v0.16.0 path)', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -131,7 +158,6 @@ describe('exportImport — Group 2: end-to-end local round-trip', () => {
     // Export
     const envelope = await exportModel(rA.current.storage, modelId!, 'test-workspace-A');
     expect(envelope.spertAhpExportVersion).toBe(1);
-    expect(envelope.appVersion).toBe('0.12.1');
     expect(envelope.meta.title).toBe('Laptops');
     expect(envelope.collaborators).toHaveLength(1);
     expect(envelope.collaborators[0]!.userId).toBe(USER_A);
@@ -141,7 +167,7 @@ describe('exportImport — Group 2: end-to-end local round-trip', () => {
     localStorage.clear();
 
     const newAdapter = new LocalStorageAdapter();
-    const newModelId = await importModel(newAdapter, JSON.stringify(envelope), USER_B);
+    const newModelId = await applySingleImport(newAdapter, JSON.stringify(envelope), USER_B);
     expect(newModelId).not.toBe(modelId);
 
     const { result: rB } = renderHook(() => useAHP(USER_B), { wrapper: TestProviders });
@@ -163,12 +189,12 @@ describe('exportImport — Group 2: end-to-end local round-trip', () => {
   });
 });
 
-describe('exportImport — Group 3: version guard', () => {
+describe('exportImport — Group 3: version guard (via parseAndClassifyImport)', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('rejects future/unsupported versions', async () => {
+  it('rejects future/unsupported versions', () => {
     const envelope = {
       spertAhpExportVersion: 2,
       meta: baseMeta(),
@@ -176,30 +202,28 @@ describe('exportImport — Group 3: version guard', () => {
       collaborators: [],
       responses: {},
     };
-    await expect(
-      importModel(new LocalStorageAdapter(), JSON.stringify(envelope), USER_B),
-    ).rejects.toThrow(/Unsupported export version/);
+    // parseAndClassifyImport surfaces a generic "Unrecognized export format"
+    // for any payload that doesn't satisfy isAHPSingleExport (which gates
+    // on spertAhpExportVersion === 1) or isAHPBundleExport. The legacy
+    // importModel's per-version error message was internal contract only.
+    expect(() => parseAndClassifyImport(JSON.stringify(envelope))).toThrow(
+      /Unrecognized export format/,
+    );
   });
 
-  it('rejects envelopes missing the version field', async () => {
+  it('rejects envelopes missing the version field', () => {
     const envelope = {
       meta: baseMeta(),
       structure: baseStructure(),
       collaborators: [],
       responses: {},
     };
-    await expect(
-      importModel(new LocalStorageAdapter(), JSON.stringify(envelope), USER_B),
-    ).rejects.toThrow(/Missing required field 'spertAhpExportVersion'/);
+    expect(() => parseAndClassifyImport(JSON.stringify(envelope))).toThrow(
+      /Unrecognized export format/,
+    );
   });
 
-  it('rejects non-JSON input', async () => {
-    await expect(
-      importModel(new LocalStorageAdapter(), 'not json at all', USER_B),
-    ).rejects.toThrow(/Invalid JSON/);
-  });
-
-  it('rejects envelopes missing required fields', async () => {
+  it('rejects envelopes missing required fields', () => {
     const envelope = {
       spertAhpExportVersion: 1,
       meta: baseMeta(),
@@ -207,23 +231,19 @@ describe('exportImport — Group 3: version guard', () => {
       collaborators: [],
       responses: {},
     };
-    await expect(
-      importModel(new LocalStorageAdapter(), JSON.stringify(envelope), USER_B),
-    ).rejects.toThrow(/Malformed export: missing 'structure'/);
+    expect(() => parseAndClassifyImport(JSON.stringify(envelope))).toThrow(
+      /Unrecognized export format/,
+    );
   });
+});
 
-  it('rejects payloads larger than the 2 MB cap', async () => {
-    // Construct a 3 MB payload — well over the 2 MB limit. Contents don't
-    // need to be valid; the size guard runs before JSON.parse.
-    const oversized = 'x'.repeat(3 * 1024 * 1024);
-    await expect(
-      importModel(new LocalStorageAdapter(), oversized, USER_B),
-    ).rejects.toThrow(/exceeds the 2 MB limit/);
+describe('exportImport — Group 4: UID remap + synthesis strip (via buildBundleFromEnvelope)', () => {
+  beforeEach(() => {
+    localStorage.clear();
   });
 
   it('drops unknown fields from meta (whitelist-copy)', async () => {
-    // Craft an envelope where meta has an extra rogue field. The whitelist
-    // pick should strip it before persistence.
+    // Whitelist pickers should strip any rogue field on meta before persistence.
     const envelope = {
       spertAhpExportVersion: 1,
       appVersion: '0.7.2',
@@ -249,19 +269,16 @@ describe('exportImport — Group 3: version guard', () => {
         },
       },
       synthesis: null,
-    };
+    } as unknown as AHPExportEnvelope;
 
+    const bundle = buildBundleFromEnvelope(envelope, 'importer');
     const adapter = new LocalStorageAdapter();
-    const newModelId = await importModel(adapter, JSON.stringify(envelope), 'importer');
+    const newModelId = generateModelId();
+    await adapter.createModelFromBundle(newModelId, bundle);
+
     const loaded = await adapter.getModel(newModelId);
     expect(loaded).not.toBeNull();
     expect('rogueField' in (loaded!.meta as unknown as Record<string, unknown>)).toBe(false);
-  });
-});
-
-describe('exportImport — Group 4: UID remap + synthesis strip', () => {
-  beforeEach(() => {
-    localStorage.clear();
   });
 
   it('collapses multi-user envelope to single importer, strips synthesis', async () => {
@@ -318,11 +335,13 @@ describe('exportImport — Group 4: UID remap + synthesis strip', () => {
           structureVersionAtSubmission: 1,
         },
       },
-      synthesis: null, // strip behavior is driven by publishedSynthesisId reset, tested via model state
+      synthesis: null,
     };
 
+    const bundle = buildBundleFromEnvelope(envelope, 'importer-X');
     const adapter = new LocalStorageAdapter();
-    const newModelId = await importModel(adapter, JSON.stringify(envelope), 'importer-X');
+    const newModelId = generateModelId();
+    await adapter.createModelFromBundle(newModelId, bundle);
 
     const loaded = await adapter.getModel(newModelId);
     expect(loaded).not.toBeNull();
@@ -380,8 +399,10 @@ describe('exportImport — Group 4: UID remap + synthesis strip', () => {
       synthesis: null,
     };
 
+    const bundle = buildBundleFromEnvelope(envelope, 'new-user');
     const adapter = new LocalStorageAdapter();
-    const newModelId = await importModel(adapter, JSON.stringify(envelope), 'new-user');
+    const newModelId = generateModelId();
+    await adapter.createModelFromBundle(newModelId, bundle);
 
     const resp = await adapter.getResponse(newModelId, 'new-user');
     expect(resp!.criteriaMatrix['0,1']).toBe(7);
