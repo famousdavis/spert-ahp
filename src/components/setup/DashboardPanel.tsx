@@ -22,7 +22,7 @@ function yyyymmdd(): string {
 
 export default function DashboardPanel({ ahpState, userId, onDecisionOpened }: DashboardPanelProps) {
   const { user } = useAuth();
-  const { mode } = useStorage();
+  const { mode, cloudDataLoaded, setCloudDataLoaded } = useStorage();
   const [savedModels, setSavedModels] = useState<ModelIndexEntry[]>([]);
   const [isExportingAll, setIsExportingAll] = useState(false);
   const [exportAllError, setExportAllError] = useState<string | null>(null);
@@ -33,17 +33,33 @@ export default function DashboardPanel({ ahpState, userId, onDecisionOpened }: D
     userId,
     loadModel: ahpState.loadModel,
     onDecisionOpened,
+    cloudDataLoaded,
   });
 
+  // Mount-time listModels: signals StorageContext that the active adapter's
+  // initial fetch has resolved. Cancellation guard prevents stale resolution
+  // from a prior adapter from setting the new adapter's gate.
   useEffect(() => {
-    void ahpState.storage.listModels().then(setSavedModels);
-  }, [ahpState.storage]);
+    let cancelled = false;
+    void ahpState.storage.listModels().then((models) => {
+      if (cancelled) return;
+      setSavedModels(models);
+      // No-op in local mode (state already true); React bails out of re-render.
+      setCloudDataLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ahpState.storage, setCloudDataLoaded]);
 
   // Re-fetch the model list when AuthContext claims pending invitations OR
   // when an import writes new/replaced models (useImportState dispatches the
   // same event). The listener is idempotent across both sources.
   useEffect(() => {
     const onChanged = () => {
+      // cloudDataLoaded not updated here — by the time spert:models-changed
+      // fires (post-import), cloudDataLoaded is already true from the
+      // mount-time fetch above.
       void ahpState.storage.listModels().then(setSavedModels);
     };
     window.addEventListener('spert:models-changed', onChanged);
@@ -128,7 +144,11 @@ export default function DashboardPanel({ ahpState, userId, onDecisionOpened }: D
         <div className="flex gap-2">
           <button
             onClick={importState.handleImportClick}
-            disabled={importState.isBusy}
+            disabled={importState.isBusy || importState.isCloudNotReady}
+            aria-busy={
+              importState.phase.tag === 'applying' ||
+              importState.phase.tag === 'parsing'
+            }
             className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-xs font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
           >
             {importState.phase.tag === 'applying'
@@ -161,8 +181,20 @@ export default function DashboardPanel({ ahpState, userId, onDecisionOpened }: D
         </div>
       </div>
 
+      {mode === 'cloud' && !cloudDataLoaded && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-xs text-amber-600 dark:text-amber-400"
+        >
+          Cloud decisions are still loading — import will be available in a moment.
+        </p>
+      )}
       {importState.importError && (
-        <div className="text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md p-2">
+        <div
+          role="alert"
+          className="text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md p-2"
+        >
           {importState.importError}
         </div>
       )}

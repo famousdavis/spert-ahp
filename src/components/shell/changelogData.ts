@@ -9,6 +9,34 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.17.0',
+    date: '2026-05-24',
+    sections: [
+      {
+        title: 'Import — cloud hydration gate',
+        items: [
+          'Cloud decisions gate the Import button until the initial Firestore fetch completes. Previously, signing in and immediately picking an import file would call listModels() against an empty local cache, silently missing all conflicts. The Import button is now disabled with an amber hint banner ("Cloud decisions are still loading…") until the first listModels() resolves. Mid-preview storage changes continue to abort the import flow as before',
+          'Confirm Import and Confirm Replace now check cloud readiness as a secondary guard. If the cloud fetch has not completed when the user confirms, they receive a clear error rather than proceeding against a stale conflict map',
+          'StorageContext resets cloud-readiness atomically with the adapter swap. No render window exists between "new adapter" and "Import button disabled"',
+        ],
+      },
+      {
+        title: 'Import — defensive hardening',
+        items: [
+          'runApply exit logic moved to a finally block. applyActiveRef and runApplyEnteredRef resets are now guaranteed to run regardless of throw',
+          'aria-busy added to Import button during applying and parsing phases so screen readers announce in-progress states correctly',
+          'Result and error banners use role="alert" (errors) or role="status" (success) so screen readers announce import outcomes without requiring navigation to the banner',
+        ],
+      },
+      {
+        title: 'Import — legacy cleanup',
+        items: [
+          'importModel() removed. The pre-v0.16.0 single-shot import function had no production callers after v0.16.0\'s applyImportMerge introduction. Its 9 tests were migrated to the current parseAndClassifyImport + buildBundleFromEnvelope path or deleted where already covered. Consolidates the duplicated UID-remap logic behind buildBundleFromEnvelope',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.16.1',
     date: '2026-05-24',
     sections: [

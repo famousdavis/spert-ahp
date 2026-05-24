@@ -43,6 +43,8 @@ export function TestProvidersWithAdapter({
           mode: 'local',
           isCloudAvailable: false,
           switchMode: () => {},
+          cloudDataLoaded: true,
+          setCloudDataLoaded: () => {},
         }}
       >
         {children}

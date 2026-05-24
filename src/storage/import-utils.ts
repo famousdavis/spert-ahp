@@ -29,9 +29,7 @@ function byteLength(s: string): number {
 const MAX_PARSE_BYTES = 10 * 1024 * 1024; // 10 MB outer cap
 
 // 900 KB per envelope. Firestore doc limit is 1 MB; the headroom covers
-// metadata and the slot-only response merge on replace. The single-model
-// direct-import path (importModel.ts) uses a 2 MB cap; unifying these is
-// tracked for v0.17.0.
+// metadata and the slot-only response merge on replace.
 export const MAX_ENVELOPE_BYTES = 900 * 1024;
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -323,15 +321,9 @@ export async function applyImportMerge(
   originalConflicts: AHPConflictMap,
   userId: string,
 ): Promise<AHPImportResult> {
-  // Layer 2: re-fetch and re-detect.
-  //
-  // KNOWN CLOUD-MODE LIMITATION: FirestoreAdapter.listModels() may return a
-  // stale local-cache snapshot during the post-sign-in hydration window. If
-  // hydration completes between Layer 1 and Layer 2, the maps differ → safe
-  // abort. If hydration has NOT completed by Layer 2 either, both reads are
-  // equally stale → conflictMapsEqual returns true and the write proceeds
-  // against an incomplete cache view. Deferred to v0.17.0 (requires
-  // FirestoreAdapter to expose a hydration signal).
+  // Layer 2 conflictMapsEqual abort is a backstop. The primary defense is
+  // the cloudDataLoaded gate in StorageContext, which disables the import
+  // path until DashboardPanel's mount-time listModels() resolves.
   const freshExisting = await storage.listModels();
   const freshConflicts = detectAHPImportConflicts(envelopes, freshExisting);
   if (!conflictMapsEqual(originalConflicts, freshConflicts)) {

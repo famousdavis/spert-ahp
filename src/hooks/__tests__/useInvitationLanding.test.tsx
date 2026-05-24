@@ -178,6 +178,8 @@ describe('useInvitationLanding', () => {
               mode: 'local',
               isCloudAvailable: opts.isCloudAvailable,
               switchMode: opts.switchMode,
+              cloudDataLoaded: true,
+              setCloudDataLoaded: () => {},
             }}
           >
             {children}
@@ -277,6 +279,8 @@ describe('useInvitationLanding', () => {
               mode: 'local',
               isCloudAvailable: true,
               switchMode: () => {},
+              cloudDataLoaded: true,
+              setCloudDataLoaded: () => {},
             }}
           >
             {children}
