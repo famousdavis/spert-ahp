@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.16.1',
+    date: '2026-05-24',
+    sections: [
+      {
+        title: 'About page',
+        items: [
+          'Renamed the QRG download button from "Open PDF" to "Open Quick Reference Guide (PDF)" to match the canonical label used across all SPERT® Suite apps.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-05-19',
     sections: [

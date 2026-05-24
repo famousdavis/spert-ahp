@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.16.1 (May 24, 2026)
+
+About page polish — renames the QRG download button to match the canonical label shared across all SPERT® Suite apps.
+
+### About page
+- Renamed the QRG download button from `Open PDF` to `Open Quick Reference Guide (PDF)` so the label matches the convention used by SPERT® Forecaster, MyScrumBudget, and the rest of the suite.
+
 ## v0.16.0 (May 19, 2026)
 
 Level 4 import upgrade. Closes a live incompatibility where the Export All button produced files the Import button refused to read, adds a per-model conflict-resolution preview, and hardens the cloud-side replace path with transaction-level owner enforcement.

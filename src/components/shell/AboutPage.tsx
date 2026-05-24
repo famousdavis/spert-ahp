@@ -84,7 +84,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
           rel="noopener noreferrer"
           className="inline-block px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
         >
-          Open PDF
+          Open Quick Reference Guide (PDF)
         </a>
       </Section>
 
