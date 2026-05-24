@@ -165,6 +165,8 @@ export default function ImportPreviewSection({
     const isError = !result.ok || result.errorCount > 0;
     return (
       <div
+        role={isError ? 'alert' : 'status'}
+        aria-live={isError ? 'assertive' : 'polite'}
         className={`rounded-md border p-3 text-sm space-y-2 ${
           isError
             ? 'border-red-200 dark:border-red-800'
