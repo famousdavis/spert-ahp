@@ -164,8 +164,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        setUser(null);
-        setLoading(false);
+        // Path 3: externally-revoked session (token expiry, server-side revoke,
+        // account deletion in another tab). Run the same cleanup pipeline as
+        // user-initiated sign-out.
+        //
+        // DOUBLE-CLEANUP NOTE: After user-initiated sign-out (path 1),
+        // firebaseSignOut triggers onAuthStateChanged(null), running this branch
+        // a second time. All steps in performSignOutWithCleanup — and every
+        // callback registered via registerSignOutCleanup — MUST be idempotent.
+        // Current callbacks (mode reset, closeModel) are safe to run twice.
+        // Future callbacks must uphold this contract.
+        //
+        // try/finally: ensures setUser(null) and setLoading(false) run even if
+        // performSignOutWithCleanup throws (e.g., transient network error from
+        // the firebaseSignOut call within it).
+        try {
+          await performSignOutWithCleanup();
+        } catch (err) {
+          console.error(
+            '[AuthContext] sign-out cleanup failed:',
+            (err as { code?: string }).code ?? 'unknown',
+          );
+        } finally {
+          setUser(null);
+          setLoading(false);
+        }
         return;
       }
 

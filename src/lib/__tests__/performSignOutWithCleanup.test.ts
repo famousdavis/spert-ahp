@@ -47,6 +47,10 @@ vi.mock('../callables', () => ({
 
 // Import AFTER mocks
 import { performSignOutWithCleanup } from '../performSignOutWithCleanup';
+import {
+  getSynthesisGeneration,
+  resetSynthesisGenerationForTests,
+} from '../synthesisGeneration';
 
 describe('performSignOutWithCleanup', () => {
   beforeEach(() => {
@@ -54,6 +58,7 @@ describe('performSignOutWithCleanup', () => {
     sessionStorage.clear();
     clearSignOutCleanupRegistry();
     signOutSpy.mockClear();
+    resetSynthesisGenerationForTests(); // isolate generation counter per test
   });
 
   it('clears consent, PII, migration flag, runs registry, then calls firebaseSignOut', async () => {
@@ -114,5 +119,37 @@ describe('performSignOutWithCleanup', () => {
     await expect(performSignOutWithCleanup()).resolves.toBeUndefined();
     expect(signOutSpy).toHaveBeenCalledTimes(1);
     errorSpy.mockRestore();
+  });
+
+  it('E2a: clears local project data when signing out of cloud mode', async () => {
+    localStorage.setItem('ahp/storageMode', 'cloud');
+    localStorage.setItem('ahp/modelIndex', JSON.stringify([{ modelId: 'm1', title: 'Test' }]));
+    localStorage.setItem('ahp/models/m1/meta', JSON.stringify({ title: 'Test' }));
+    localStorage.setItem('ahp/models/m1/structure', JSON.stringify({ criteria: [] }));
+
+    await performSignOutWithCleanup();
+
+    expect(localStorage.getItem('ahp/modelIndex')).toBeNull();
+    expect(localStorage.getItem('ahp/models/m1/meta')).toBeNull();
+    expect(localStorage.getItem('ahp/models/m1/structure')).toBeNull();
+  });
+
+  it('E2a: does NOT clear local project data when signing out of local mode', async () => {
+    localStorage.setItem('ahp/storageMode', 'local');
+    localStorage.setItem('ahp/modelIndex', JSON.stringify([{ modelId: 'm1', title: 'Test' }]));
+    localStorage.setItem('ahp/models/m1/meta', JSON.stringify({ title: 'Test' }));
+
+    await performSignOutWithCleanup();
+
+    // Local mode: model data is the user's only copy — must NOT be cleared.
+    expect(localStorage.getItem('ahp/modelIndex')).not.toBeNull();
+    expect(localStorage.getItem('ahp/models/m1/meta')).not.toBeNull();
+  });
+
+  it('G1: bumps synthesis generation counter as the first step of cleanup', async () => {
+    // Baseline is 0 (reset in beforeEach)
+    expect(getSynthesisGeneration()).toBe(0);
+    await performSignOutWithCleanup();
+    expect(getSynthesisGeneration()).toBe(1);
   });
 });

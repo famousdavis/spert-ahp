@@ -9,6 +9,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.0',
+    date: '2026-05-25',
+    sections: [
+      {
+        title: 'Cloud storage correctness',
+        items: [
+          'External sign-out (token expiry, server-side revoke, account deletion in another tab) now runs the same cleanup pipeline as user-initiated sign-out. Previously, the onAuthStateChanged(null) branch only set user to null, leaving PII in localStorage and the storage mode at cloud',
+          'Cloud sign-out clears local project data (ahp/modelIndex, ahp/models/*). Previously a prior cloud user\'s decisions remained and could appear in the next user\'s migration prompt',
+          'Comparison saves flush immediately on pagehide and beforeunload. Previously a user who closed the tab within the debounce window would silently lose their last judgment',
+          'Comparison save debounce is cancelled explicitly via the sign-out registry, ensuring cancellation regardless of whether ComparisonPanel is currently mounted',
+          'Matrix comparisons update in real time when a collaborator\'s snapshot arrives. Previously useMatrix seeded state once on mount and ignored all subsequent prop changes',
+          'Title, goal, and item-label inputs are protected by a focus guard — a collaborator\'s snapshot no longer clobbers text the user is actively typing. Navigating to another tab while a field is focused commits the in-progress draft. Enter now commits item labels without requiring blur',
+          'When a collaborator\'s access is revoked while they have a decision open, the snapshot error now triggers a state reset removing the revoked model from memory',
+          'Synthesis computation checks a generation counter after each storage await — a sign-out during a multi-voter synthesis no longer writes to a revoked session',
+          'updateModel and updateStructure now include schemaVersion in every Firestore update payload',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.17.0',
     date: '2026-05-24',
     sections: [

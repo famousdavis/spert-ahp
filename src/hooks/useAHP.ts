@@ -11,6 +11,7 @@ import {
   type FirestoreSynthesis,
 } from '../storage/firestoreSynthesisCodec';
 import { computeSynthesis } from './synthesisPipeline';
+import { getSynthesisGeneration } from '../lib/synthesisGeneration';
 import type {
   AHPState,
   AHPAction,
@@ -219,9 +220,18 @@ export function useAHP(userId: string): UseAHPReturn {
   const runSynthesis = useCallback(async () => {
     if (!state.modelId || !state.structure || !state.model) return;
 
+    // G1: capture generation at dispatch. bumpSynthesisGeneration() in
+    // performSignOutWithCleanup() (Pass 2) increments the counter — guards
+    // below discard stale results from any sign-out that occurs mid-pipeline.
+    const myGen = getSynthesisGeneration();
+
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'computing' } });
     await storage.updateModel(state.modelId, { synthesisStatus: 'computing' });
+    // Note: initial updateModel (above) is intentionally not preceded by a gen-check.
+    // If sign-out fires during this first await, the write may succeed with 'computing'
+    // status but subsequent gen-checks will prevent further dispatches or writes.
+    if (getSynthesisGeneration() !== myGen) return;
 
     try {
       const { synthesisId, bundle } = await computeSynthesis({
@@ -230,12 +240,16 @@ export function useAHP(userId: string): UseAHPReturn {
         model: state.model,
         storage,
       });
+      if (getSynthesisGeneration() !== myGen) return; // sign-out during computeSynthesis
 
       await storage.saveSynthesis(state.modelId, synthesisId, bundle);
+      if (getSynthesisGeneration() !== myGen) return; // sign-out during saveSynthesis
+
       await storage.updateModel(state.modelId, {
         synthesisStatus: 'current',
         publishedSynthesisId: synthesisId,
       });
+      if (getSynthesisGeneration() !== myGen) return; // sign-out during final updateModel
 
       dispatch({ type: 'SET_SYNTHESIS', payload: bundle });
       dispatch({
@@ -244,6 +258,7 @@ export function useAHP(userId: string): UseAHPReturn {
       });
       dispatch({ type: 'SET_LOADING', payload: false });
     } catch (err) {
+      if (getSynthesisGeneration() !== myGen) return;
       await storage.updateModel(state.modelId, { synthesisStatus: 'out_of_date' });
       dispatch({ type: 'SET_ERROR', payload: (err as Error).message });
       dispatch({ type: 'UPDATE_MODEL', payload: { synthesisStatus: 'out_of_date' } });
@@ -319,6 +334,24 @@ export function useAHP(userId: string): UseAHPReturn {
     });
     return unsub;
   }, [state.modelId, storage]);
+
+  // I2: listen for access-revoked events dispatched by FirestoreAdapter when a
+  // permission-denied error fires on the snapshot subscription. Reset state so
+  // the revoked model is removed from memory and the user returns to the dashboard.
+  //
+  // Known limitation: any Firestore write already in-flight when revocation fires
+  // will fail with one permission-denied error, surfaced via SET_ERROR in
+  // saveComparisons. Subsequent writes do not occur after RESET clears modelId.
+  // No infinite-loop risk (AHP has no diff-based save cache).
+  useEffect(() => {
+    const onRevoked = (e: Event) => {
+      const { modelId: revokedId } = (e as CustomEvent<{ modelId: string }>).detail;
+      if (revokedId !== state.modelId) return;
+      dispatch({ type: 'RESET' });
+    };
+    window.addEventListener('spert:access-revoked', onRevoked);
+    return () => window.removeEventListener('spert:access-revoked', onRevoked);
+  }, [state.modelId]);
 
   return {
     ...state,

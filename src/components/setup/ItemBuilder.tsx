@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useBufferedField } from '../../hooks/useBufferedField';
 import type { StructuredItem } from '../../types/ahp';
 
 function GripIcon() {
@@ -27,15 +28,13 @@ interface SortableItemProps {
 }
 
 function SortableItem({ item, index, itemLabel, onUpdateLabel, onRemove }: SortableItemProps) {
-  const [localLabel, setLocalLabel] = useState(item.label);
+  const labelField = useBufferedField({
+    storeValue: item.label,
+    onCommit: (value) => { if (value !== item.label) onUpdateLabel(value); },
+  });
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
   });
-
-  // Sync from parent when the item changes externally (e.g. drag-reorder)
-  useEffect(() => {
-    setLocalLabel(item.label);
-  }, [item.label]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -62,9 +61,11 @@ function SortableItem({ item, index, itemLabel, onUpdateLabel, onRemove }: Sorta
       <input
         type="text"
         name="itemLabel"
-        value={localLabel}
-        onChange={(e) => setLocalLabel(e.target.value)}
-        onBlur={() => { if (localLabel !== item.label) onUpdateLabel(localLabel); }}
+        value={labelField.draft}
+        onChange={labelField.handleChange}
+        onFocus={labelField.handleFocus}
+        onBlur={labelField.handleBlur}
+        onKeyDown={labelField.handleKeyDown}
         aria-label={`${itemLabel} ${index + 1} label`}
         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
       />

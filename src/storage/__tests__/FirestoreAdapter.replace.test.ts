@@ -55,6 +55,7 @@ vi.mock('../../lib/callables', () => ({
 
 // Import after mocks
 import { FirestoreAdapter } from '../FirestoreAdapter';
+import { updateDoc } from 'firebase/firestore';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function makeBundle(overrides: Partial<AHPExportBundle> = {}): AHPExportBundle {
@@ -105,6 +106,7 @@ describe('FirestoreAdapter.replaceModelFromBundle', () => {
     runTransactionMock.mockClear();
     txGetMock.mockClear();
     txSetMock.mockClear();
+    vi.mocked(updateDoc).mockClear(); // K2: prevent stale calls from prior tests
     lastTxSetPayload = null;
     currentSnap = { exists: false, data: {} };
     adapter = new FirestoreAdapter(UID);
@@ -249,5 +251,15 @@ describe('FirestoreAdapter.replaceModelFromBundle', () => {
     expect(payload._changeLog).toEqual([
       { action: 'imported', timestamp: 9_999_999_000, actor: 'importer-uid' },
     ]);
+  });
+
+  it('K2: updateModel includes schemaVersion in the Firestore payload', async () => {
+    vi.mocked(updateDoc).mockResolvedValue(undefined);
+    const altAdapter = new FirestoreAdapter('user-1');
+    await altAdapter.updateModel('model-1', { title: 'Updated Title' });
+    expect(vi.mocked(updateDoc)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ schemaVersion: 1, title: 'Updated Title' }),
+    );
   });
 });
