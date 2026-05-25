@@ -337,7 +337,10 @@ export class FirestoreAdapter implements StorageAdapter {
 
   async updateModel(modelId: string, partialMeta: Partial<ModelDoc>): Promise<void> {
     // Build update payload — only include defined fields (Firestore rejects undefined)
-    const update: Record<string, unknown> = { updatedAt: Date.now() };
+    const update: Record<string, unknown> = {
+      updatedAt: Date.now(),
+      schemaVersion: CURRENT_SCHEMA_VERSION, // K2: every update carries current schema version
+    };
     for (const [k, v] of Object.entries(partialMeta)) {
       if (v !== undefined) update[k] = v;
     }
@@ -414,6 +417,7 @@ export class FirestoreAdapter implements StorageAdapter {
       alternatives: structureDoc.alternatives,
       structureVersion: structureDoc.structureVersion,
       updatedAt: Date.now(),
+      schemaVersion: CURRENT_SCHEMA_VERSION, // K2
     });
   }
 
@@ -662,11 +666,26 @@ export class FirestoreAdapter implements StorageAdapter {
         callback(snap.data());
       },
       (err) => {
+        const code = (err as { code?: string }).code ?? 'unknown';
         console.error(
           `[FirestoreAdapter] subscribeModel error for ${modelId}:`,
-          (err as { code?: string }).code ?? 'unknown',
+          code,
           (err as Error).message,
         );
+        // I2: on access revocation, emit a window event so useAHP can evict
+        // the model from in-memory state. The snapshot subscription is already
+        // dead at this point (Firestore unsubscribes on error).
+        //
+        // Intentionally NOT handled here (model remains visible, writes fail):
+        //   'not-found': model deleted externally; writes fail on next attempt.
+        //   'unauthenticated': token expiry triggers onAuthStateChanged(null)
+        //     (path 3), which runs full cleanup via Pass 1.
+        //   'unavailable': transient network outage; may self-heal.
+        if (code === 'permission-denied') {
+          window.dispatchEvent(
+            new CustomEvent('spert:access-revoked', { detail: { modelId } }),
+          );
+        }
       },
     );
   }

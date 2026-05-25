@@ -176,4 +176,50 @@ describe('useAHP subscription handler — meta reconstruction', () => {
       showOwnRankingsToVoters: true,
     });
   });
+
+  it('I2: dispatches RESET when spert:access-revoked fires for the open model', async () => {
+    const meta = makeMeta();
+    const structure = makeStructure();
+    const { adapter } = buildStubAdapter(meta, structure);
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(TestProvidersWithAdapter, { adapter, children });
+
+    const { result } = renderHook(() => useAHP('user-a'), { wrapper });
+
+    await act(async () => { await result.current.loadModel('model-1'); });
+    expect(result.current.modelId).toBe('model-1');
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('spert:access-revoked', { detail: { modelId: 'model-1' } }),
+      );
+    });
+
+    expect(result.current.modelId).toBeNull();
+    expect(result.current.model).toBeNull();
+  });
+
+  it('I2: ignores spert:access-revoked for a different model', async () => {
+    const meta = makeMeta();
+    const structure = makeStructure();
+    const { adapter } = buildStubAdapter(meta, structure);
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(TestProvidersWithAdapter, { adapter, children });
+
+    const { result } = renderHook(() => useAHP('user-a'), { wrapper });
+
+    await act(async () => { await result.current.loadModel('model-1'); });
+    expect(result.current.modelId).toBe('model-1');
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('spert:access-revoked', { detail: { modelId: 'other-model' } }),
+      );
+    });
+
+    // State must be unchanged
+    expect(result.current.modelId).toBe('model-1');
+  });
 });

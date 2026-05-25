@@ -1,6 +1,7 @@
-import { useEffect, useId, useState } from 'react';
+import { useId } from 'react';
 import ItemBuilder from './ItemBuilder';
 import TierSelector from './TierSelector';
+import { useBufferedField } from '../../hooks/useBufferedField';
 import type { UseAHPReturn, CompletionTier } from '../../types/ahp';
 
 interface DecisionPanelProps {
@@ -10,37 +11,27 @@ interface DecisionPanelProps {
 export default function DecisionPanel({ ahpState }: DecisionPanelProps) {
   const hasResponses = Object.keys(ahpState.responses).length > 0;
   const hasComparisons = hasResponses && Object.values(ahpState.responses).some(
-    (r) => Object.keys(r.criteriaMatrix ?? {}).length > 0
+    (r) => Object.keys(r.criteriaMatrix ?? {}).length > 0,
   );
 
   const modelTitle = ahpState.model?.title ?? '';
   const modelGoal = ahpState.model?.goal ?? '';
-  const [titleDraft, setTitleDraft] = useState(modelTitle);
-  const [goalDraft, setGoalDraft] = useState(modelGoal);
   const fieldId = useId();
   const titleId = `${fieldId}-title`;
   const goalId = `${fieldId}-goal`;
 
-  // Resync drafts if the model changes from outside this panel
-  // (e.g., another collaborator edits, or the user opens a different
-  // decision without unmounting).
-  useEffect(() => {
-    setTitleDraft(modelTitle);
-  }, [modelTitle]);
-  useEffect(() => {
-    setGoalDraft(modelGoal);
-  }, [modelGoal]);
-
-  const commitTitle = () => {
-    if (titleDraft !== modelTitle) {
-      void ahpState.updateModel({ title: titleDraft });
-    }
-  };
-  const commitGoal = () => {
-    if (goalDraft !== modelGoal) {
-      void ahpState.updateModel({ goal: goalDraft });
-    }
-  };
+  const titleField = useBufferedField({
+    storeValue: modelTitle,
+    onCommit: (value) => {
+      if (value !== modelTitle) void ahpState.updateModel({ title: value });
+    },
+  });
+  const goalField = useBufferedField({
+    storeValue: modelGoal,
+    onCommit: (value) => {
+      if (value !== modelGoal) void ahpState.updateModel({ goal: value });
+    },
+  });
 
   const handleStructureChange = (field: 'criteria' | 'alternatives', value: unknown) => {
     const newStructure = {
@@ -55,26 +46,39 @@ export default function DecisionPanel({ ahpState }: DecisionPanelProps) {
     <div className="space-y-8">
       <div className="space-y-3">
         <div>
-          <label htmlFor={titleId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+          <label
+            htmlFor={titleId}
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
+            Title
+          </label>
           <input
             id={titleId}
             name="decisionTitle"
             type="text"
-            value={titleDraft}
-            onChange={(e) => setTitleDraft(e.target.value)}
-            onBlur={commitTitle}
+            value={titleField.draft}
+            onChange={titleField.handleChange}
+            onFocus={titleField.handleFocus}
+            onBlur={titleField.handleBlur}
+            onKeyDown={titleField.handleKeyDown}
             placeholder="Untitled decision"
             className="w-full px-3 py-2 text-base font-semibold border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
         <div>
-          <label htmlFor={goalId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Goal</label>
+          <label
+            htmlFor={goalId}
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
+            Goal
+          </label>
           <textarea
             id={goalId}
             name="decisionGoal"
-            value={goalDraft}
-            onChange={(e) => setGoalDraft(e.target.value)}
-            onBlur={commitGoal}
+            value={goalField.draft}
+            onChange={goalField.handleChange}
+            onFocus={goalField.handleFocus}
+            onBlur={goalField.handleBlur}
             placeholder="What are you trying to decide?"
             rows={2}
             className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500"
