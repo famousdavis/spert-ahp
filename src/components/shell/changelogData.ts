@@ -9,6 +9,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.1',
+    date: '2026-06-19',
+    sections: [
+      {
+        title: 'Dependency security',
+        items: [
+          'Vitest upgraded 2.1.9 → 4.1.4. The two-major jump (2→3→4) cleared with zero test changes — all 30 test files and 347 cases pass unchanged, including the heavy mock and fake-timer usage (vi.fn, vi.mock, vi.spyOn, vi.useFakeTimers, mockRestore) that the v3 behavioral changes (stricter toEqual/toThrow error equality, mockReset() restoring original implementations, fake timers mocking performance.now()) could have affected',
+          'Vite upgraded 6.4.1 → 7.3.2. The production build was re-verified clean on Vite 7. @vitejs/plugin-react was deliberately held at 4.7.0, which already supports Vite 7 — its 6.x line was avoided because it requires Vite 8',
+          'Duplicate Vite 5.4.21 removed from the dependency tree. Vitest 2\'s vite-node pulled a second Vite into the tree; Vitest 4\'s module runner eliminates it, leaving a single deduplicated Vite',
+          'Two Windows-only Vite advisories remain deferred to a follow-up around July 31, 2026. GHSA-v6wh-96g9-6wx3 (launch-editor NTLMv2 hash disclosure via UNC paths) and GHSA-fx2h-pf6j-xcff (server.fs.deny bypass on Windows alternate paths) affect Vite 7.0.0-7.3.3. Both are dev-only (Vite is never shipped to production) and Windows-only; closing them requires moving past 7.3.3, which is scheduled separately',
+        ],
+      },
+      {
+        title: 'Internal — test infrastructure',
+        items: [
+          'vitest.config.ts now excludes dist/ and .claude/ from test discovery. Vitest 4 relaxed its default excludes to only node_modules and .git; without an explicit exclude the runner picked up build output and local Claude Code worktree copies under .claude/, inflating the suite from 30 files to 126. No test logic changed',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.0',
     date: '2026-05-25',
     sections: [
