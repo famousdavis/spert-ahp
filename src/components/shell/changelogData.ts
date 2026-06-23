@@ -9,6 +9,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.3',
+    date: '2026-06-23',
+    sections: [
+      {
+        title: 'Dependency security',
+        items: [
+          'Firebase upgraded 12.11.0 → 12.12.1 (advances @firebase/firestore 4.13.0 → 4.14.0).',
+          'Added npm overrides (protobufjs ≥7.6.3, @grpc/grpc-js ~1.9.16) plus a full lockfile regen — clears the critical protobuf.js advisory cluster, the high @grpc/grpc-js crash advisories, and the moderate @protobufjs/utf8 overlong-UTF-8 advisory from the Firestore subtree. @protobufjs/utf8 is not overridden directly: protobuf.js 7.6.4 depends on the patched @protobufjs/utf8 ^1.1.1, so the override pulls it through the dependency chain.',
+          'The full lockfile regen also refreshed the remaining caret-ranged transitive advisories — postcss, @babel/core, ws, form-data, and lodash — to patched releases. npm audit now reports a single low-severity advisory: esbuild (Windows dev-server only), which remains chronically deferred.',
+        ],
+      },
+      {
+        title: 'Internal — dependency pre-pins',
+        items: [
+          'Pre-pinned vitest 4.1.4 → 4.1.5, tailwindcss 4.2.2 → 4.2.4, @tailwindcss/vite 4.2.2 → 4.2.4 ahead of the lockfile regen (versions tagged in v0.18.4).',
+          'Pinned @types/react to exact 18.3.28 (ceiling-pin; stays on React 18 types until the React 19 upgrade).',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.2',
     date: '2026-06-23',
     sections: [
