@@ -47,12 +47,14 @@ export function useMatrix({
   // This pattern (assigning to refs during render) is intentional for "stable
   // mutable container" use cases. Using useEffect instead would make these refs
   // stale in synchronous cleanup functions (unmount-commit, sign-out cancel).
+  /* eslint-disable react-hooks/refs -- intentional stable-mutable-ref sync; see rationale above */
   const comparisonsRef = useRef<ComparisonMap>(comparisons);
   comparisonsRef.current = comparisons;
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
   const layerRef = useRef(layer);
   layerRef.current = layer;
+  /* eslint-enable react-hooks/refs */
 
   const recompute = useCallback((comp: ComparisonMap) => {
     if (n <= 1) {

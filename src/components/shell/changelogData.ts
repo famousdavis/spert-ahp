@@ -9,6 +9,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.9',
+    date: '2026-06-23',
+    sections: [
+      {
+        title: 'Internal — tooling',
+        items: [
+          'Added ESLint 9.39.4 (flat config) with the suite-standard lean base — typescript-eslint 8.62.0, eslint-plugin-react-hooks 7.0.1, eslint-plugin-react-refresh 0.5.2, globals 17.4.0 — bringing AHP in line with the other SPERT Vite apps (SSV, Scheduler, Story Map). New "lint": "eslint ." script (errors-fail-only); dist/ and .claude/** (Claude Code worktrees) are ignored. The DevOps dashboard ESLint badge now reads 9.39.4 for AHP.',
+          'typescript-eslint pinned to 8.62.0 for TypeScript 6 support. The suite-wide 8.57.x caps its TypeScript peer at <6.0.0, but AHP runs TS 6.0.3; 8.58.0 widened the peer to <6.1.0, so 8.62.0 (latest in the 8.x line) installs cleanly without --force.',
+          'Cleared 14 lint errors from the first run: removed two inert @next/next/no-img-element disable comments in AppHeader (AHP is Vite, not Next); suppressed react-hooks/refs on the intentional latest-value ref syncs in useMatrix and useBufferedField (a documented stable-mutable-ref pattern); suppressed one react-hooks/purity false positive on a click-handler Date.now() in ThresholdConfigurator; replaced five as-any casts in LocalStorageAdapter.test.ts with typed casts; and removed a dead test helper plus a now-unused exhaustive-deps directive. All 347 tests pass.',
+          '11 React Hooks / React Refresh warnings (only-export-components, set-state-in-effect, exhaustive-deps) are left visible and non-blocking — the lint gate fails on errors only.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.8',
     date: '2026-06-23',
     sections: [
