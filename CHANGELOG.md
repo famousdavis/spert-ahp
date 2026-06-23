@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.18.6 (June 23, 2026)
+
+Maintenance — TypeScript upgraded across a major version, 5.9.3 → 6.0.3. The build (`tsc -b`) and all 347 tests pass unchanged. The single side-effect CSS import in `main.tsx` is covered by Vite's ambient client types, so no tsconfig changes were needed. TypeScript is a dev/build-time tool with no runtime footprint.
+
+### Internal — tooling
+- **TypeScript upgraded 5.9.3 → 6.0.3 (major).** `tsc -b` builds clean with the existing strict tsconfig; no `ignoreDeprecations` shim or new ambient declarations required.
+
 ## v0.18.5 (June 23, 2026)
 
 Maintenance — jsdom (the test-only DOM environment) upgraded across a major version, 25 → 29. jsdom 29 replaces its bundled `ws` and `form-data` dependencies with `undici`, removing that transitive lineage entirely. The `ws`/`form-data` advisories themselves were already cleared via patched releases in v0.18.3; this upgrade removes the dependencies so the lineage cannot reappear. No application code changed; jsdom is a devDependency.

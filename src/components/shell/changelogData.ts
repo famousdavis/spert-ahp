@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.6',
+    date: '2026-06-23',
+    sections: [
+      {
+        title: 'Internal — tooling',
+        items: [
+          'TypeScript upgraded 5.9.3 → 6.0.3 (major; dev/build-time tool, no runtime footprint). tsc -b builds clean with the existing strict tsconfig — the single side-effect CSS import in main.tsx is covered by Vite ambient client types, so no tsconfig changes or new ambient declarations were needed. All 347 tests pass.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.5',
     date: '2026-06-23',
     sections: [
