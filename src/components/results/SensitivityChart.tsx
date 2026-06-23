@@ -36,8 +36,8 @@ export default function SensitivityChart({ sweep, crossovers, alternatives, crit
           />
           <YAxis tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
           <Tooltip
-            formatter={(v: number) => `${(v * 100).toFixed(1)}%`}
-            labelFormatter={(v: number) => `Weight: ${(v * 100).toFixed(0)}%`}
+            formatter={(v) => `${(Number(v) * 100).toFixed(1)}%`}
+            labelFormatter={(v) => `Weight: ${(Number(v) * 100).toFixed(0)}%`}
           />
           {alternatives.map((alt, i) => (
             <Line

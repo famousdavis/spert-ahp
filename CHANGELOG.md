@@ -1,5 +1,14 @@
 # SPERT® AHP — Changelog
 
+## v0.18.7 (June 23, 2026)
+
+Maintenance — recharts upgraded across a major version, 2.15.4 → 3.8.1. recharts 3 drops its bundled lodash dependency (replaced internally by es-toolkit), removing that transitive lineage entirely; the lodash advisory itself was already cleared via a patched release in v0.18.3. `react-is` is added as a direct dependency to satisfy recharts 3's new peer requirement. The two consuming charts (SensitivityChart, VoterRadarChart) use only stable public props.
+
+### Internal — charting
+- **recharts upgraded 2.15.4 → 3.8.1 (major).** Drops bundled lodash (→ es-toolkit); adds a redux-toolkit-based internal state layer (no app-level `<Provider>` needed). Production bundle is slightly smaller (1,190 → 1,157 kB).
+- **Added react-is 18.3.1 as a direct dependency** to satisfy recharts 3's required `react-is` peer (matches the React 18 runtime).
+- **SensitivityChart Tooltip formatters coerced via `Number(v)`.** recharts 3 widens the Tooltip `formatter` value to `ValueType` and `labelFormatter`'s label to `ReactNode`; the two callbacks now coerce with `Number(v)` for type compatibility (behavior unchanged). The LineChart (with crossover ReferenceDots) was verified rendering under recharts 3.
+
 ## v0.18.6 (June 23, 2026)
 
 Maintenance — TypeScript upgraded across a major version, 5.9.3 → 6.0.3. The build (`tsc -b`) and all 347 tests pass unchanged. The single side-effect CSS import in `main.tsx` is covered by Vite's ambient client types, so no tsconfig changes were needed. TypeScript is a dev/build-time tool with no runtime footprint.
