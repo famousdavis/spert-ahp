@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.18.4 (June 23, 2026)
+
+Version tag — the vitest and Tailwind upgrades that pre-landed in the v0.18.3 lockfile regen are tagged to this release for changelog attribution. No dependency or application code changed since v0.18.3.
+
+### Internal — maintenance
+- **Version tag for vitest 4.1.4 → 4.1.5 and tailwindcss / @tailwindcss/vite 4.2.2 → 4.2.4.** These versions were pre-pinned and installed in v0.18.3 (ahead of the lockfile regen); this release is their canonical changelog attribution.
+
 ## v0.18.3 (June 23, 2026)
 
 Dependency security — Firebase moved to 12.12.1 and the Firestore transitive cluster (protobuf.js, `@grpc/grpc-js`) was cleared via npm overrides and a full lockfile regeneration. Four soaking-version pins were applied ahead of the regen so it could not float any caret-ranged dependency to an unsoaked release. No application code changed.

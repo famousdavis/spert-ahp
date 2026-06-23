@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.4',
+    date: '2026-06-23',
+    sections: [
+      {
+        title: 'Internal — maintenance',
+        items: [
+          'Version tag for vitest 4.1.4 → 4.1.5 and tailwindcss / @tailwindcss/vite 4.2.2 → 4.2.4. These versions were pre-pinned and installed in v0.18.3 ahead of the lockfile regen; this release is their canonical changelog attribution. No dependency or application code changed since v0.18.3.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.3',
     date: '2026-06-23',
     sections: [
