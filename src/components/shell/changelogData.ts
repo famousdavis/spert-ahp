@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.7',
+    date: '2026-06-23',
+    sections: [
+      {
+        title: 'Internal — charting',
+        items: [
+          'recharts upgraded 2.15.4 → 3.8.1 (major). recharts 3 drops its bundled lodash dependency (replaced internally by es-toolkit), removing that transitive lineage entirely — the lodash advisory itself was already cleared via a patched release in v0.18.3. Adds a redux-toolkit-based internal state layer (no app-level Provider needed); the production bundle is slightly smaller (1,190 → 1,157 kB).',
+          'Added react-is 18.3.1 as a direct dependency to satisfy recharts 3\'s required react-is peer (matches the React 18 runtime).',
+          'SensitivityChart Tooltip formatter and labelFormatter coerced via Number(v): recharts 3 widens the Tooltip formatter value to ValueType and the label to ReactNode, so the two callbacks now coerce for type compatibility (display behavior unchanged). Both charts verified rendering under recharts 3.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.6',
     date: '2026-06-23',
     sections: [
