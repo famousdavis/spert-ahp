@@ -62,7 +62,7 @@ export interface UseImportStateArgs {
 
 export interface UseImportStateReturn {
   phase: ImportPhase;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   importError: string | null;
   /** True when the Import button should be disabled because an import flow
    *  is in progress (parsing / preview / replace-confirm / applying). */
