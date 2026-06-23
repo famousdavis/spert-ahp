@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.8',
+    date: '2026-06-23',
+    sections: [
+      {
+        title: 'Internal — framework',
+        items: [
+          'React upgraded 18.3.1 → 19.2.5 (major) — react, react-dom, react-is, @types/react (19.2.14) and @types/react-dom (19.2.3) moved atomically. The app already uses the createRoot API and has no legacy call sites (no ReactDOM.render, findDOMNode, string refs, or no-argument useRef), so the only source change was a single type annotation — useImportState\'s fileInputRef return type now includes | null to match React 19\'s RefObject<T | null> from useRef(null). tsc -b and all 347 tests pass. @vitejs/plugin-react 4.7.0 imposes no React peer constraint, and @testing-library/react 16.3.2 already supports React 19.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.7',
     date: '2026-06-23',
     sections: [

@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.18.8 (June 23, 2026)
+
+Maintenance — React upgraded across a major version, 18.3.1 → 19.2.5. The five React packages (react, react-dom, react-is, @types/react, @types/react-dom) moved atomically. The app already uses the React 19-correct `createRoot` API with no legacy call sites, so the only source change was a single ref-type annotation — `tsc -b` and all 347 tests pass unchanged.
+
+### Internal — framework
+- **React upgraded 18.3.1 → 19.2.5 (major).** `react`, `react-dom`, `react-is` → 19.2.5; `@types/react` → 19.2.14; `@types/react-dom` → 19.2.3 (atomic). One type-only change — `useImportState`'s `fileInputRef` is now `RefObject<HTMLInputElement | null>` to match React 19's `useRef(null)` return. The app already uses `createRoot`, with no `ReactDOM.render`, `findDOMNode`, string refs, or no-argument `useRef`. `@vitejs/plugin-react` 4.7.0 imposes no React peer; `@testing-library/react` 16.3.2 supports React 19.
+
 ## v0.18.7 (June 23, 2026)
 
 Maintenance — recharts upgraded across a major version, 2.15.4 → 3.8.1. recharts 3 drops its bundled lodash dependency (replaced internally by es-toolkit), removing that transitive lineage entirely; the lodash advisory itself was already cleared via a patched release in v0.18.3. `react-is` is added as a direct dependency to satisfy recharts 3's new peer requirement. The two consuming charts (SensitivityChart, VoterRadarChart) use only stable public props.
