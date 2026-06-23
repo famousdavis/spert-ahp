@@ -4,9 +4,6 @@ import { useBufferedField } from '../useBufferedField';
 import type { ChangeEvent, FocusEvent, KeyboardEvent } from 'react';
 
 // Minimal synthetic event helpers — avoids `as any` casts
-function focusEvent(): FocusEvent<HTMLInputElement> {
-  return {} as FocusEvent<HTMLInputElement>;
-}
 function blurEvent(value: string): FocusEvent<HTMLInputElement> {
   return { target: { value } } as FocusEvent<HTMLInputElement>;
 }

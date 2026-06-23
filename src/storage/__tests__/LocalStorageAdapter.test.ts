@@ -7,7 +7,7 @@ import {
   createCollaboratorDoc,
   createResponseDoc,
 } from '../../core/models/AHPModel';
-import type { CollaboratorDoc } from '../../types/ahp';
+import type { CollaboratorDoc, DisagreementConfig, SynthesisBundle } from '../../types/ahp';
 
 describe('LocalStorageAdapter', () => {
   let adapter: LocalStorageAdapter;
@@ -49,7 +49,7 @@ describe('LocalStorageAdapter', () => {
       const meta = createModelDoc('Test', 'Goal', 'user1');
       await adapter.createModel('m1', meta, createStructureDoc());
       await adapter.updateModel('m1', {
-        disagreementConfig: { thresholds: { agreement: 0.20 } } as any,
+        disagreementConfig: { thresholds: { agreement: 0.20 } } as unknown as DisagreementConfig,
       });
 
       const result = await adapter.getModel('m1');
@@ -79,8 +79,8 @@ describe('LocalStorageAdapter', () => {
       try {
         await adapter.updateModel('m1', { completionTier: 2 });
         expect.fail('Should have thrown');
-      } catch (e: any) {
-        expect(e.code).toBe(ERROR_CODES.TIER_LOCKED);
+      } catch (e) {
+        expect((e as { code: string }).code).toBe(ERROR_CODES.TIER_LOCKED);
       }
     });
 
@@ -247,11 +247,11 @@ describe('LocalStorageAdapter', () => {
         summary: { method: 'AIJ', synthesizedAt: Date.now() },
         individual: { user1: { weights: [0.5, 0.3, 0.2] } },
         diagnostics: { items: [] },
-      } as any;
+      } as unknown as Partial<SynthesisBundle>;
       await adapter.saveSynthesis('m1', 'syn1', docs);
       const result = await adapter.getSynthesis('m1', 'syn1');
-      expect((result!.summary as any).method).toBe('AIJ');
-      expect((result!.individual as any).user1.weights).toEqual([0.5, 0.3, 0.2]);
+      expect(result!.summary.method).toBe('AIJ');
+      expect((result!.individual as unknown as { user1: { weights: number[] } }).user1.weights).toEqual([0.5, 0.3, 0.2]);
     });
 
     it('getSynthesis returns null for nonexistent', async () => {

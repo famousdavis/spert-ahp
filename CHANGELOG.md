@@ -1,5 +1,15 @@
 # SPERT® AHP — Changelog
 
+## v0.18.9 (June 23, 2026)
+
+Tooling — ESLint added to the project, bringing AHP in line with the other SPERT Vite apps (SSV, Scheduler, Story Map), which all lint. The flat config mirrors that suite baseline — `typescript-eslint` (recommended) plus the React Hooks and React Refresh plugins — and adds a `lint` script (`eslint .`, errors-fail-only). `typescript-eslint` is pinned to 8.62.0 rather than the suite's 8.57.x because AHP is the first app on TypeScript 6.0.3, which 8.57's peer range (`<6.0.0`) excludes; 8.58+ widened it to `<6.1.0`. The first lint run surfaced 14 errors, all resolved in this patch. Build clean, all 347 tests pass.
+
+### Internal — tooling
+- **Added ESLint 9.39.4 (flat config) with the suite-standard lean base:** `typescript-eslint` 8.62.0, `eslint-plugin-react-hooks` 7.0.1, `eslint-plugin-react-refresh` 0.5.2, `globals` 17.4.0. New `"lint": "eslint ."` script; `dist/` and `.claude/**` (Claude Code worktrees) are ignored. The DevOps dashboard's presence-derived ESLint badge now reads 9.39.4 for AHP.
+- **`typescript-eslint` pinned to 8.62.0 for TypeScript 6 support.** The suite-wide 8.57.x caps its TypeScript peer at `<6.0.0`; AHP runs TS 6.0.3. 8.58.0 widened the peer to `<6.1.0`, so 8.62.0 (latest in the 8.x line) installs cleanly without `--force`.
+- **Cleared 14 lint errors from the first run.** Removed two inert `@next/next/no-img-element` disable comments in AppHeader (AHP is Vite, so the Next rule does not exist); suppressed `react-hooks/refs` on the intentional latest-value ref syncs in `useMatrix` and `useBufferedField` (a documented stable-mutable-ref pattern whose `useEffect` alternative would stale the refs in synchronous cleanup); suppressed one `react-hooks/purity` false positive on a click-handler `Date.now()` in ThresholdConfigurator; replaced five `as any` casts in `LocalStorageAdapter.test.ts` with typed casts (`DisagreementConfig`, `Partial<SynthesisBundle>`, narrow shapes); and removed a dead test helper plus a now-unused `exhaustive-deps` directive.
+- **11 React Hooks / React Refresh warnings left visible (non-blocking).** `react-refresh/only-export-components` (context files), `react-hooks/set-state-in-effect`, and `react-hooks/exhaustive-deps` remain as warnings for later cleanup; the `lint` gate fails on errors only.
+
 ## v0.18.8 (June 23, 2026)
 
 Maintenance — React upgraded across a major version, 18.3.1 → 19.2.5. The five React packages (react, react-dom, react-is, @types/react, @types/react-dom) moved atomically. The app already uses the React 19-correct `createRoot` API with no legacy call sites, so the only source change was a single ref-type annotation — `tsc -b` and all 347 tests pass unchanged.

@@ -32,9 +32,9 @@ export function useBufferedField({
   const [draft, setDraft] = useState(storeValue);
   const isFocusedRef = useRef(false);
   const draftRef = useRef(draft);
-  draftRef.current = draft; // intentional: sync during render for cleanup access
+  draftRef.current = draft; // eslint-disable-line react-hooks/refs -- intentional latest-value sync for unmount-cleanup access
   const onCommitRef = useRef(onCommit);
-  onCommitRef.current = onCommit; // intentional: sync during render for cleanup access
+  onCommitRef.current = onCommit; // eslint-disable-line react-hooks/refs -- intentional latest-value sync for unmount-cleanup access
 
   // Resync draft from store when not focused (peer snapshot, external reset)
   useEffect(() => {
@@ -48,7 +48,7 @@ export function useBufferedField({
         onCommitRef.current(draftRef.current);
       }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

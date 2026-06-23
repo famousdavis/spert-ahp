@@ -16,13 +16,11 @@ export default function AppHeader({ onOpenSettings, onNavigateHome }: AppHeaderP
           aria-label="Return to Decisions"
           className="flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-md"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/spert-favicon-ahp.png"
             alt=""
             className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20 block dark:hidden"
           />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/spert-favicon-ahp-dark.png"
             alt=""

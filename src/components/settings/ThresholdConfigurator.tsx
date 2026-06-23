@@ -21,6 +21,7 @@ export default function ThresholdConfigurator({ config, onUpdate }: ThresholdCon
       disagreementConfig: {
         preset: preset as DisagreementConfig['preset'],
         thresholds: { ...DISAGREEMENT_PRESETS[preset]! },
+        // eslint-disable-next-line react-hooks/purity -- Date.now() runs in this click handler, not during render
         configuredAt: Date.now(),
       },
     });
