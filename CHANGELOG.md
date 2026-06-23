@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.18.2 (June 23, 2026)
+
+Security patch — Vite moved to 7.3.5 to close the two Windows-only, dev-server-only advisories deferred in v0.18.1. No application code changed; Vite is a devDependency and is never shipped to production.
+
+### Dependency security
+- **Vite upgraded 7.3.2 → 7.3.5.** Clears GHSA-v6wh-96g9-6wx3 (`launch-editor` NTLMv2 hash disclosure via UNC paths) and GHSA-fx2h-pf6j-xcff (`server.fs.deny` bypass on Windows alternate paths), both affecting Vite 7.0.0–7.3.3. Vite 7.3.4 was never published, so 7.3.5 is the first patched 7.x release. `@vitejs/plugin-react` stays at 4.7.0; Vite 8 (Rolldown major) is deferred as a separate decision.
+
 ## v0.18.1 (June 19, 2026)
 
 Dependency security update — Vite and Vitest moved to current major versions to pick up upstream security fixes. The upgrade ran in two isolated steps (Vitest 2→4 first, then Vite 6→7) so any regression would be attributable to a single jump. No application code changed and the production runtime is untouched; both packages are devDependencies.

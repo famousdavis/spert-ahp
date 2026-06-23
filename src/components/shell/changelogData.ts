@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.2',
+    date: '2026-06-23',
+    sections: [
+      {
+        title: 'Dependency security',
+        items: [
+          'Vite upgraded 7.3.2 → 7.3.5 — clears the two Windows-only, dev-server-only advisories deferred in v0.18.1: GHSA-v6wh-96g9-6wx3 (launch-editor NTLMv2 hash disclosure via UNC paths) and GHSA-fx2h-pf6j-xcff (server.fs.deny bypass on Windows alternate paths), both affecting Vite 7.0.0–7.3.3. Vite 7.3.4 was never published, so 7.3.5 is the first patched 7.x release. @vitejs/plugin-react stays at 4.7.0; Vite 8 (Rolldown major) is deferred.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.1',
     date: '2026-06-19',
     sections: [
