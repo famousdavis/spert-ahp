@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.5',
+    date: '2026-06-23',
+    sections: [
+      {
+        title: 'Internal — test environment',
+        items: [
+          'jsdom upgraded 25.0.1 → 29.1.0 (major; test-only devDependency). jsdom 29 replaces its bundled ws and form-data dependencies with undici, removing that transitive lineage entirely — the ws/form-data advisories themselves were already cleared via patched releases in v0.18.3. All 30 test files / 347 cases pass unchanged under jsdom 29.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.4',
     date: '2026-06-23',
     sections: [

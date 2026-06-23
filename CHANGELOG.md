@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.18.5 (June 23, 2026)
+
+Maintenance — jsdom (the test-only DOM environment) upgraded across a major version, 25 → 29. jsdom 29 replaces its bundled `ws` and `form-data` dependencies with `undici`, removing that transitive lineage entirely. The `ws`/`form-data` advisories themselves were already cleared via patched releases in v0.18.3; this upgrade removes the dependencies so the lineage cannot reappear. No application code changed; jsdom is a devDependency.
+
+### Internal — test environment
+- **jsdom upgraded 25.0.1 → 29.1.0 (major).** Drops the bundled `ws` and `form-data` transitive dependencies (replaced by `undici`). All 30 test files / 347 cases pass unchanged under jsdom 29.
+
 ## v0.18.4 (June 23, 2026)
 
 Version tag — the vitest and Tailwind upgrades that pre-landed in the v0.18.3 lockfile regen are tagged to this release for changelog attribution. No dependency or application code changed since v0.18.3.
