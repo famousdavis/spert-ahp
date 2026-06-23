@@ -1,5 +1,18 @@
 # SPERT® AHP — Changelog
 
+## v0.18.3 (June 23, 2026)
+
+Dependency security — Firebase moved to 12.12.1 and the Firestore transitive cluster (protobuf.js, `@grpc/grpc-js`) was cleared via npm overrides and a full lockfile regeneration. Four soaking-version pins were applied ahead of the regen so it could not float any caret-ranged dependency to an unsoaked release. No application code changed.
+
+### Dependency security
+- **Firebase upgraded 12.11.0 → 12.12.1.** Advances `@firebase/firestore` 4.13.0 → 4.14.0.
+- **npm overrides added (`protobufjs` ≥7.6.3, `@grpc/grpc-js` ~1.9.16) plus a full lockfile regen.** Clears the critical protobuf.js advisory cluster, the high `@grpc/grpc-js` crash advisories, and the moderate `@protobufjs/utf8` overlong-UTF-8 advisory from the Firestore subtree. `@protobufjs/utf8` is not overridden directly — protobuf.js 7.6.4 depends on the patched `@protobufjs/utf8` ^1.1.1, so the override pulls it through the dependency chain.
+- **Remaining transitive advisories refreshed.** The full regen also floated `postcss`, `@babel/core`, `ws`, `form-data`, and `lodash` to patched releases; `npm audit` now reports only the chronically-deferred `esbuild` low advisory (Windows dev-server only).
+
+### Internal — dependency pre-pins
+- **Pre-pinned vitest 4.1.4 → 4.1.5, tailwindcss 4.2.2 → 4.2.4, @tailwindcss/vite 4.2.2 → 4.2.4** ahead of the lockfile regen (these versions are tagged in v0.18.4).
+- **Pinned @types/react to exact 18.3.28** (ceiling-pin; stays on React 18 types until the React 19 upgrade).
+
 ## v0.18.2 (June 23, 2026)
 
 Security patch — Vite moved to 7.3.5 to close the two Windows-only, dev-server-only advisories deferred in v0.18.1. No application code changed; Vite is a devDependency and is never shipped to production.
