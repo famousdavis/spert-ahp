@@ -1,5 +1,12 @@
 # SPERT® AHP — Changelog
 
+## v0.18.10 (June 26, 2026)
+
+Infrastructure — adopt Node.js 24 LTS. Declares the runtime explicitly for the first time: a new `engines.node` of `24.x` and a new `.nvmrc` pinned to `24`. No application logic or dependencies changed; `@types/node` is left at its transitively-resolved version, and Vercel's build runtime is set to 24.x in the dashboard alongside this release. Build clean, lint clean, all tests pass.
+
+### Infrastructure — runtime
+- **Adopted Node.js 24 LTS:** added `engines.node` `"24.x"` (was unset) and created `.nvmrc` = `24`. Runtime declaration only — no source or dependency changes.
+
 ## v0.18.9 (June 23, 2026)
 
 Tooling — ESLint added to the project, bringing AHP in line with the other SPERT Vite apps (SSV, Scheduler, Story Map), which all lint. The flat config mirrors that suite baseline — `typescript-eslint` (recommended) plus the React Hooks and React Refresh plugins — and adds a `lint` script (`eslint .`, errors-fail-only). `typescript-eslint` is pinned to 8.62.0 rather than the suite's 8.57.x because AHP is the first app on TypeScript 6.0.3, which 8.57's peer range (`<6.0.0`) excludes; 8.58+ widened it to `<6.1.0`. The first lint run surfaced 14 errors, all resolved in this patch. Build clean, all 347 tests pass.
