@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.10',
+    date: '2026-06-26',
+    sections: [
+      {
+        title: 'Infrastructure — runtime',
+        items: [
+          'Adopted Node.js 24 LTS: added engines.node "24.x" (previously unset) and created .nvmrc pinned to 24, aligning the declared and local dev runtime with the Node 24 LTS line. No application logic or dependencies changed; @types/node is left at its transitively-resolved version. Vercel’s build runtime is set to 24.x in the dashboard in coordination with this release.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.9',
     date: '2026-06-23',
     sections: [
