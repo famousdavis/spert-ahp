@@ -1,5 +1,15 @@
 # SPERT® AHP — Changelog
 
+## v0.18.11 (June 26, 2026)
+
+Tooling — upgrade ESLint to 10.2.1, matching the suite standard (SPERT Story Map). ESLint 10 requires Node ≥20.19 / 22.13 / 24, which the v0.18.10 Node 24 adoption unlocked. Bumps `eslint` 9.39.4 → 10.2.1, `@eslint/js` → 10.0.1, `eslint-plugin-react-hooks` → 7.1.1 (adds the ESLint 10 peer), and `globals` → 17.5.0; `typescript-eslint` stays pinned at 8.62.0 for TypeScript 6. The stricter react-hooks 7.1.1 `recommended` set surfaced pre-existing patterns as warnings (11 → 23) — the gate fails on errors only, so all remain non-blocking. Build clean, all 347 tests pass.
+
+### Internal — tooling
+- **ESLint 9.39.4 → 10.2.1** (`@eslint/js` 10.0.1, `eslint-plugin-react-hooks` 7.1.1, `globals` 17.5.0). `typescript-eslint` kept at 8.62.0 (TypeScript 6 support — Story Map's 8.59.0 would regress it). Unlocked by the Node 24 runtime adopted in v0.18.10.
+- **`react-hooks/refs` set to `warn`:** react-hooks 7.1's compiler-based rule taints hook return objects that bundle a ref (e.g. `useImportState` returns `fileInputRef` alongside `phase`/`importError`) and false-flags ordinary member access during render. Downgraded to a warning, matching how `set-state-in-effect` is handled.
+- **One `no-useless-assignment` suppression** in `useImportState.ts`, where a variable initializer is required for TypeScript definite-assignment but ESLint 10's flow analysis can't see the throw-before-assign path and flags it as useless.
+- ESLint 10 enables `reportUnusedDisableDirectives` by default — stale disable comments now surface as warnings.
+
 ## v0.18.10 (June 26, 2026)
 
 Infrastructure — adopt Node.js 24 LTS. Declares the runtime explicitly for the first time: a new `engines.node` of `24.x` and a new `.nvmrc` pinned to `24`. No application logic or dependencies changed; `@types/node` is left at its transitively-resolved version, and Vercel's build runtime is set to 24.x in the dashboard alongside this release. Build clean, lint clean, all tests pass.
