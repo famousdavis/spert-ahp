@@ -29,6 +29,13 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
       'react-hooks/set-state-in-effect': 'warn',
+      // react-hooks 7.1's compiler-based `refs` rule taints any hook return value
+      // that bundles a ref alongside other fields (e.g. useImportState returns
+      // `fileInputRef` next to `phase`/`importError`), then flags ordinary member
+      // access on that object during render as "accessing refs during render".
+      // Those are false positives, so this stays a warning — matching how
+      // `set-state-in-effect` is handled. The gate fails on errors only.
+      'react-hooks/refs': 'warn',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },

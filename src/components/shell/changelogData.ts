@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.11',
+    date: '2026-06-26',
+    sections: [
+      {
+        title: 'Internal — tooling',
+        items: [
+          'Upgraded ESLint 9.39.4 → 10.2.1 to match the suite standard (SPERT Story Map): @eslint/js 10.0.1, eslint-plugin-react-hooks 7.1.1 (adds the ESLint 10 peer), globals 17.5.0. typescript-eslint stays pinned at 8.62.0 for TypeScript 6 support (Story Map’s 8.59.0 would regress it). ESLint 10 requires Node ≥20.19/22.13/24, unlocked by the Node 24 runtime adopted in v0.18.10.',
+          'Set react-hooks/refs to "warn": react-hooks 7.1’s compiler-based rule taints hook return values that bundle a ref (useImportState returns fileInputRef alongside phase/importError) and false-flags ordinary member access during render. Downgraded to a warning to match set-state-in-effect; the lint gate fails on errors only.',
+          'Added one targeted no-useless-assignment suppression in useImportState.ts where a variable initializer is required for TypeScript definite-assignment but ESLint 10’s flow analysis flags it as useless. The stricter react-hooks 7.1.1 recommended set raised the non-blocking warning count from 11 to 23 (all pre-existing patterns). Build clean, all 347 tests pass.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.10',
     date: '2026-06-26',
     sections: [

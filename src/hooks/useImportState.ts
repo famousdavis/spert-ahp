@@ -156,6 +156,11 @@ export function useImportState(args: UseImportStateArgs): UseImportStateReturn {
       applyStaleRef.current = false;
       setPhase({ tag: 'applying' }); // applying write-site 1 of 2
 
+      // The initializer is required for TypeScript definite-assignment: the `finally`
+      // below reads phaseOnExit, and on the throw-before-assign path it is only set in
+      // `catch`. ESLint's flow analysis can't see that path and calls the init useless;
+      // tsc needs it.
+      // eslint-disable-next-line no-useless-assignment
       let phaseOnExit: ImportPhase = { tag: 'idle' };
       try {
         const applyResult = await applyImportMerge(
